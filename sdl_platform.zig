@@ -100,16 +100,7 @@ pub fn coreLoop(
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
 
-        // I'm doing this bufPrintZ() dance because igText() fails to format a
-        // float - it always outputs 0.00.  Traced the problem to vsnprintf() in
-        // imgui.cpp::ImFormatString().
-        // Maybe my libc was somehow compiled without float formatting support?
-        // Didn't investigate further.
-        // Also tried to switch to stb_sprintf.h by defining
-        // IMGUI_USE_STB_SPRINTF, but it crashed with segmentation fault.
-        var tmp_print_buf: [64]u8 = undefined;
-        const fpsText = try std.fmt.bufPrintZ(&tmp_print_buf, "FPS: {d:.2}", .{fps});
-        c.igText("%s", fpsText.ptr);
+        imguiText("FPS: {d:.2}", .{fps});
 
         renderCallback(&platform.screen_buffer);
         platform.render();
@@ -126,6 +117,19 @@ pub fn coreLoop(
         fps_accumulator += current_time - previous_time;
         fps_frame_count += 1;
     }
+}
+
+pub fn imguiText(comptime fmt: []const u8, args: anytype) void {
+    // I'm doing this bufPrintZ() dance because igText() fails to format a
+    // float - it always outputs 0.00.  Traced the problem to vsnprintf() in
+    // imgui.cpp::ImFormatString().
+    // Maybe my libc was somehow compiled without float formatting support?
+    // Didn't investigate further.
+    // Also tried to switch to stb_sprintf.h by defining
+    // IMGUI_USE_STB_SPRINTF, but it crashed with segmentation fault.
+    var buf: [256]u8 = undefined;
+    const text = std.fmt.bufPrintZ(&buf, fmt, args) catch unreachable;
+    c.igText("%s", text.ptr);
 }
 
 pub const InputState = struct {
