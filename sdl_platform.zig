@@ -6,7 +6,7 @@ const Allocator = std.mem.Allocator;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa_allocator = gpa.allocator();
 
-const ScreenBuffer = @import("handmade_gl").ScreenBuffer;
+const ScreenBuffer = @import("handmade_gl").screen.ScreenBuffer;
 
 const MAGENTA = 0xFF00FFFF;
 
