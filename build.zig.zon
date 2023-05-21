@@ -1,0 +1,14 @@
+.{
+    .name = "zig_sdl_platform",
+    .version = "0.0.0",
+    .dependencies = .{
+        .sdl = .{
+            .url = "https://github.com/MasterQ32/SDL.zig/archive/e6f9576eab562140632806e57539ef658e62fed9.tar.gz",
+            .hash = "122006bf2c75d6d0f2c4d98e573cc2c1e708c2c737d9fa46b6364e9fdba7234b7c50",
+        },
+        .handmade_gl = .{
+            .url = "https://git.sr.ht/~bxff/handmade_gl/archive/342a24f.tar.gz",
+            .hash = "1220c42823b915a759174703543ee33d93ede6c7e0da4d428bb21d4f165fc5280635",
+        },
+    },
+}
