@@ -16,10 +16,10 @@ const MAGENTA = 0xFF00FFFF;
 // platform and application code is still probably worthwile.
 
 pub fn coreLoop(
-    updateCallback: fn (f64) void,
-    renderCallback: fn (*ScreenBuffer) void,
-    resizeCallback: fn (u32, u32) void,
-    inputCallback: fn (*const InputState) void,
+    updateCallback: *const fn (f64) void,
+    renderCallback: *const fn (*ScreenBuffer) void,
+    resizeCallback: *const fn (u32, u32) void,
+    inputCallback: *const fn (*const InputState) void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -200,7 +200,7 @@ pub const SdlPlatform = struct {
         try SDL.gl.setAttribute(.{ .context_major_version = 3 });
         try SDL.gl.setAttribute(.{ .context_minor_version = 0 });
 
-        try SDL.gl.setAttribute(.{ .doublebuffer = 1 });
+        try SDL.gl.setAttribute(.{ .doublebuffer = true });
         try SDL.gl.setAttribute(.{ .depth_size = 24 });
         try SDL.gl.setAttribute(.{ .stencil_size = 8 });
 
@@ -210,7 +210,7 @@ pub const SdlPlatform = struct {
             .{ .centered = {} },
             width,
             height,
-            .{ .shown = true, .opengl = true, .resizable = false, .allow_high_dpi = true },
+            .{ .vis = .shown, .context = .opengl, .resizable = false, .allow_high_dpi = true },
         );
 
         self.gl_context = try SDL.gl.createContext(self.window);
