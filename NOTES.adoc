@@ -2,4 +2,14 @@
 
 == TODO
 
-* Try to use https://github.com/SpexGuy/Zig-ImGui
+=== Try to build the example application on non-NixOS
+
+=== Fix the example application on NixOS
+
+....
+/home/reinis/dev/learn/zig/zig_sdl_platform/zig-out/bin/example: /nix/store/vnwdak3n1w2jjil119j65k8mw1z23p84-glibc-2.35-224/lib/libc.so.6: version `GLIBC_ABI_DT_RELR' not found (required by /nix/store/yaz7pyf0ah88g2v505l38n0f3wg2vzdj-glibc-2.37-8/lib/libpthread.so.0)
+/home/reinis/dev/learn/zig/zig_sdl_platform/zig-out/bin/example: /nix/store/vnwdak3n1w2jjil119j65k8mw1z23p84-glibc-2.35-224/lib/libc.so.6: version `GLIBC_ABI_DT_RELR' not found (required by /nix/store/yaz7pyf0ah88g2v505l38n0f3wg2vzdj-glibc-2.37-8/lib/librt.so.1)
+/home/reinis/dev/learn/zig/zig_sdl_platform/zig-out/bin/example: /nix/store/vnwdak3n1w2jjil119j65k8mw1z23p84-glibc-2.35-224/lib/libc.so.6: version `GLIBC_2.36' not found (required by /nix/store/0d4xl0xk1g0w41yqyd64jvzbip5lhfig-libXdmcp-1.1.3/lib/libXdmcp.so.6)
+....
+
+=== Try to use https://github.com/SpexGuy/Zig-ImGui
