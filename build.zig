@@ -37,24 +37,6 @@ pub fn build(b: *std.build.Builder) void {
     const handmade_gl_pkg = b.dependency("handmade_gl", .{});
     const handmade_gl_module = handmade_gl_pkg.module("handmade_gl");
 
-    var platform_lib = b.addSharedLibrary(.{
-        .name = "platform_lib",
-        .root_source_file = FileSource.relative("src/sdl_platform.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    platform_lib.addModule("handmade_gl", handmade_gl_module);
-    platform_lib.addIncludePath("deps/cimgui");
-    platform_lib.addIncludePath("deps/cimgui/generator/output");
-    platform_lib.addIncludePath("deps/cimgui/imgui");
-    platform_lib.addIncludePath("deps/cimgui/imgui/backends");
-    platform_lib.linkLibC();
-    platform_lib.addObject(cimgui_obj);
-    platform_lib.linkSystemLibrary("gl");
-    sdl_sdk.link(platform_lib, .dynamic);
-
-    b.installArtifact(platform_lib);
-
     var platform_module = b.addModule("platform", .{
         .source_file = FileSource.relative("src/sdl_platform.zig"),
         .dependencies = &.{
@@ -76,8 +58,8 @@ pub fn build(b: *std.build.Builder) void {
     example_exe.addIncludePath("deps/cimgui/generator/output");
     example_exe.addIncludePath("deps/cimgui/imgui");
     example_exe.addIncludePath("deps/cimgui/imgui/backends");
-    example_exe.linkLibC();
     example_exe.addObject(cimgui_obj);
+    example_exe.linkLibC();
     example_exe.linkSystemLibrary("gl");
     // TODO try to get rid of this - the application shouldn't care about SDL
     // Probably need to define our own "link" function.
