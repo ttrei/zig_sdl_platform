@@ -2,8 +2,6 @@
 
 == TODO
 
-=== Try to build the example application on non-NixOS
-
 === Fix the example application on NixOS
 
 ....
@@ -14,5 +12,7 @@
 
 This could be related:
 https://github.com/NixOS/nixpkgs/issues/228899
+
+Checked that the application builds and runs OK on non-NixOS.
 
 === Try to use https://github.com/SpexGuy/Zig-ImGui
