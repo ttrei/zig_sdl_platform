@@ -56,8 +56,6 @@ pub fn build(b: *std.build.Builder) void {
     example_exe.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
     example_exe.addIncludePath("deps/cimgui");
     example_exe.addIncludePath("deps/cimgui/generator/output");
-    example_exe.addIncludePath("deps/cimgui/imgui");
-    example_exe.addIncludePath("deps/cimgui/imgui/backends");
     example_exe.addObject(cimgui_obj);
     example_exe.linkLibC();
     example_exe.linkSystemLibrary("gl");
