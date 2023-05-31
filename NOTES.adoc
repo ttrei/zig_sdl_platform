@@ -2,6 +2,10 @@
 
 == TODO
 
+=== Try to use https://github.com/SpexGuy/Zig-ImGui
+
+== DONE
+
 === Fix the example application on NixOS
 
 ....
@@ -15,4 +19,8 @@ https://github.com/NixOS/nixpkgs/issues/228899
 
 Checked that the application builds and runs OK on non-NixOS.
 
-=== Try to use https://github.com/SpexGuy/Zig-ImGui
+A bug has been registered against Zig:
+https://github.com/ziglang/zig/issues/15898
+
+For now I will use nixpkgs 22.11 (same as my NixOS config) as a workaround.
+
