@@ -1,5 +1,5 @@
 {
-  description = "Handmade Pool dev env";
+  description = "Zig SDL platform dev env";
   # inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   # Have to match the NixOS version until this is fixed:
   # https://github.com/ziglang/zig/issues/15898
