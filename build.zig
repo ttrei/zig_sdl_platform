@@ -4,7 +4,7 @@ const FileSource = Build.FileSource;
 const LibExeObjStep = Build.LibExeObjStep;
 const SdlSdk = @import("sdl");
 
-const PlatformSdk = @This();
+const Platform = @This();
 build: *Build,
 sdl_sdk: *SdlSdk,
 
@@ -25,7 +25,7 @@ pub fn build(b: *std.build.Builder) void {
     const handmade_gl_pkg = b.dependency("handmade_gl", .{});
     const handmade_gl_module = handmade_gl_pkg.module("handmade_gl");
 
-    const sdk = PlatformSdk.init(b);
+    const sdk = Platform.init(b);
 
     var platform_module = b.addModule("platform", .{
         .source_file = FileSource.relative("src/sdl_platform.zig"),
@@ -57,8 +57,8 @@ pub fn build(b: *std.build.Builder) void {
     run_step.dependOn(&run_cmd.step);
 }
 
-pub fn init(b: *Build) *PlatformSdk {
-    const sdk = b.allocator.create(PlatformSdk) catch @panic("out of memory");
+pub fn init(b: *Build) *Platform {
+    const sdk = b.allocator.create(Platform) catch @panic("out of memory");
     sdk.* = .{
         .build = b,
         .sdl_sdk = SdlSdk.init(b, null),
@@ -66,7 +66,7 @@ pub fn init(b: *Build) *PlatformSdk {
     return sdk;
 }
 
-pub fn link(sdk: *PlatformSdk, exe: *LibExeObjStep) void {
+pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
     const b = sdk.build;
 
     const cimgui_sdl2_opengl3_obj = b.addObject(.{
