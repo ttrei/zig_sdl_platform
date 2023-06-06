@@ -9,7 +9,11 @@ build: *Build,
 sdl_sdk: *SdlSdk,
 
 // Given a path relative to this repository root, return the respective absolute path.
-// This is a way to get access to the vendored cimgui sources from application code.
+// This is a way to get access to the vendored cimgui headers from application code.
+// TODO: Delete this hack when following issue is solved:
+// https://github.com/ziglang/zig/issues/14719
+// There's a pull request:
+// https://github.com/ziglang/zig/pull/14731
 fn sdkPath(comptime path: []const u8) []const u8 {
     if (path[0] == '/') @compileError("sdkPath requires a relative path!");
     return comptime blk: {
