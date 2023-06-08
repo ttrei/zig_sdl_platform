@@ -189,7 +189,7 @@ pub const SdlPlatform = struct {
     ) !void {
         try SDL.init(.{
             .video = true,
-            .audio = false,
+            .audio = true,
             .game_controller = true,
             .timer = true,
         });
