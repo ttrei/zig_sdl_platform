@@ -2,6 +2,17 @@
 
 == TODO
 
+=== Add sound
+
+First goal: output a sine wave.
+
+https://wiki.libsdl.org/SDL2/CategoryAudio
+https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
+https://wiki.libsdl.org/SDL2/SDL_AudioSpec
+https://wiki.libsdl.org/SDL2/SDL_MixAudioFormat
+
+Watch the Handmade Hero episodes about sound.
+
 === Try to use https://github.com/SpexGuy/Zig-ImGui
 
 == DONE
