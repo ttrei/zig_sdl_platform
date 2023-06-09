@@ -62,6 +62,11 @@ fn processInput(input: *const platform.InputState) void {
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
 }
 
-fn writeSound() void {
-    std.debug.print("Writing sound\n", .{});
+var i: u8 = 0;
+
+fn writeSound(buffer: []u8) void {
+    const val = i % 60;
+    std.debug.print("Writing sound: {d}\n", .{val});
+    buffer[0] = val;
+    i += 1;
 }

@@ -20,7 +20,7 @@ pub fn coreLoop(
     renderCallback: *const fn (*ScreenBuffer) void,
     resizeCallback: *const fn (u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
-    soundCallback: *const fn () void,
+    soundCallback: *const fn ([]u8) void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -46,6 +46,9 @@ pub fn coreLoop(
     var fps: f32 = 0;
 
     var input = InputState{};
+
+    var sound_buffer = try gpa_allocator.alloc(u8, 100);
+    defer gpa_allocator.free(sound_buffer);
 
     var raw_event: SDL.c.SDL_Event = undefined;
     the_loop: while (true) {
@@ -98,7 +101,8 @@ pub fn coreLoop(
             updateCallback(step);
         }
 
-        soundCallback();
+        soundCallback(sound_buffer);
+        std.debug.print("Read sound: {d}\n", .{sound_buffer[0]});
 
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
