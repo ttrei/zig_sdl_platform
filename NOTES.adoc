@@ -29,6 +29,8 @@ game ran slowly. While this can be done with SDL_QueueAudio() and its companion 
 SDL_ClearQueuedAudio(), it is much harder to get right. 
 ....
 
+It seems that the callback function gives more control, so I will use that.
+
 
 https://wiki.libsdl.org/SDL2/CategoryAudio
 https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
