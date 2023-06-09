@@ -1,5 +1,10 @@
 = SDL Platform
 
+== Internet resources
+
+Handmade Penguin - companion to Casey Muratori's amazing Handmade Hero series, for Linux.
+https://davidgow.net/handmadepenguin/default.html
+
 == TODO
 
 === Add sound
@@ -13,8 +18,11 @@ https://wiki.libsdl.org/SDL2/SDL_OpenAudioDevice
 https://wiki.libsdl.org/SDL2/SDL_PauseAudioDevice
 https://wiki.libsdl.org/SDL2/SDL_CloseAudioDevice
 https://github.com/MasterQ32/SDL.zig/blob/fbe5f599c65b7a5642990443b2a686d1c53a4985/src/wrapper/sdl.zig#L2573
-https://wiki.libsdl.org/SDL2/SDL_AudioSpec
 https://wiki.libsdl.org/SDL2/SDL_MixAudioFormat
+
+Which approach is better - SDL_QueueAudio or SDL_AudioSpec.callback?
+https://wiki.libsdl.org/SDL2/SDL_AudioSpec
+https://wiki.libsdl.org/SDL2/SDL_QueueAudio
 
 Watch the Handmade Hero episodes about sound.
 
