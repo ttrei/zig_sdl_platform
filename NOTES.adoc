@@ -9,6 +9,12 @@ https://davidgow.net/handmadepenguin/default.html
 
 === Add sound
 
+https://davidgow.net/handmadepenguin/ch7.html
+https://davidgow.net/handmadepenguin/ch8.html
+https://davidgow.net/handmadepenguin/ch9.html
+https://davidgow.net/handmadepenguin/ch12.html
+https://davidgow.net/handmadepenguin/ch19.html
+
 First goal: output a sine wave.
 
 https://wiki.libsdl.org/SDL2/CategoryAudio
