@@ -20,7 +20,14 @@ Which approach is better - SDL_QueueAudio or SDL_AudioSpec.callback?
 https://wiki.libsdl.org/SDL2/SDL_AudioSpec
 https://wiki.libsdl.org/SDL2/SDL_QueueAudio
 SDL_QueueAudio is simpler to use - you don't have to maintain a ringbuffer of audio data.
-
+But it could be more complicated to do the "optimistic" writing of audio:
+https://davidgow.net/handmadepenguin/ch12.html
+....
+We might want to "optimistically" write an extra frame or two's worth of audio data into our buffer,
+and then overwrite it when we actually render the next frame. This would give us some leeway if the
+game ran slowly. While this can be done with SDL_QueueAudio() and its companion function
+SDL_ClearQueuedAudio(), it is much harder to get right. 
+....
 
 
 https://wiki.libsdl.org/SDL2/CategoryAudio
