@@ -9,6 +9,7 @@ https://davidgow.net/handmadepenguin/default.html
 
 === Add sound
 
+These chapters from Handmade Penguing is exactly what I need:
 https://davidgow.net/handmadepenguin/ch7.html
 https://davidgow.net/handmadepenguin/ch8.html
 https://davidgow.net/handmadepenguin/ch9.html
@@ -21,6 +22,7 @@ https://wiki.libsdl.org/SDL2/CategoryAudio
 https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
 
 https://wiki.libsdl.org/SDL2/SDL_OpenAudioDevice
+https://wiki.libsdl.org/SDL2/SDL_AudioFormat
 https://wiki.libsdl.org/SDL2/SDL_PauseAudioDevice
 https://wiki.libsdl.org/SDL2/SDL_CloseAudioDevice
 https://github.com/MasterQ32/SDL.zig/blob/fbe5f599c65b7a5642990443b2a686d1c53a4985/src/wrapper/sdl.zig#L2573
