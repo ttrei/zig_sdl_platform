@@ -32,6 +32,15 @@ SDL_ClearQueuedAudio(), it is much harder to get right.
 It seems that the callback function gives more control, so I will use that.
 
 
+Game defines a callback method for filling a sound buffer.
+For now the callback receives the target buffer and requested sample count.
+
+Platform initializes a persistent ring buffer for storing the received sound data.
+Platform executes the callback with a temporary buffer.
+Platform writes sound data from the temporary buffer to the ring buffer.
+SDL reads the sound data from the ring buffer via another callback, defined in the platform.
+
+
 https://wiki.libsdl.org/SDL2/CategoryAudio
 https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
 
