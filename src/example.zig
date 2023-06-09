@@ -24,7 +24,7 @@ pub fn main() !void {
     // try polygon.add_vertex(Point{ .x = 200, .y = 100 });
     // try polygon.add_vertex(Point{ .x = 300, .y = 300 });
 
-    try platform.coreLoop(update, render, resize, processInput);
+    try platform.coreLoop(update, render, resize, processInput, writeSound);
 }
 
 fn update(step: f64) void {
@@ -60,4 +60,8 @@ fn processInput(input: *const platform.InputState) void {
         polygon.add_vertex(Point{ .x = input.mouse_x, .y = input.mouse_y }) catch unreachable;
     }
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
+}
+
+fn writeSound() void {
+    std.debug.print("Writing sound\n", .{});
 }

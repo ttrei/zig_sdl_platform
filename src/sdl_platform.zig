@@ -20,6 +20,7 @@ pub fn coreLoop(
     renderCallback: *const fn (*ScreenBuffer) void,
     resizeCallback: *const fn (u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
+    soundCallback: *const fn () void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -96,6 +97,8 @@ pub fn coreLoop(
         while (game_accumulator >= ns_per_update) : (game_accumulator -= ns_per_update) {
             updateCallback(step);
         }
+
+        soundCallback();
 
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
