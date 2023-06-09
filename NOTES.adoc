@@ -16,7 +16,12 @@ https://davidgow.net/handmadepenguin/ch9.html
 https://davidgow.net/handmadepenguin/ch12.html
 https://davidgow.net/handmadepenguin/ch19.html
 
-First goal: output a sine wave.
+Which approach is better - SDL_QueueAudio or SDL_AudioSpec.callback?
+https://wiki.libsdl.org/SDL2/SDL_AudioSpec
+https://wiki.libsdl.org/SDL2/SDL_QueueAudio
+SDL_QueueAudio is simpler to use - you don't have to maintain a ringbuffer of audio data.
+
+
 
 https://wiki.libsdl.org/SDL2/CategoryAudio
 https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
@@ -27,12 +32,6 @@ https://wiki.libsdl.org/SDL2/SDL_PauseAudioDevice
 https://wiki.libsdl.org/SDL2/SDL_CloseAudioDevice
 https://github.com/MasterQ32/SDL.zig/blob/fbe5f599c65b7a5642990443b2a686d1c53a4985/src/wrapper/sdl.zig#L2573
 https://wiki.libsdl.org/SDL2/SDL_MixAudioFormat
-
-Which approach is better - SDL_QueueAudio or SDL_AudioSpec.callback?
-https://wiki.libsdl.org/SDL2/SDL_AudioSpec
-https://wiki.libsdl.org/SDL2/SDL_QueueAudio
-
-Watch the Handmade Hero episodes about sound.
 
 === Try to use https://github.com/SpexGuy/Zig-ImGui
 
