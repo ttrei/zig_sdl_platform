@@ -10,11 +10,6 @@ const ScreenBuffer = @import("handmade_gl").ScreenBuffer;
 
 const MAGENTA = 0xFF00FFFF;
 
-// Platform providing the core loop and a display using SDL+OpenGL+ImGui.
-
-// SDL is already a cross-platform library but defining an interface between
-// platform and application code is still probably worthwile.
-
 pub fn coreLoop(
     updateCallback: *const fn (f64) void,
     renderCallback: *const fn (*ScreenBuffer) void,
