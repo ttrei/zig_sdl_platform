@@ -16,7 +16,7 @@ const PersistGlobal = struct {
     var show_demo_window: bool = false;
     var scale: f32 = 1;
     var tone_hz: u32 = 440;
-    var tone_vol: i16 = 3000;
+    var tone_vol: f32 = 3000.0;
 };
 
 const p0 = Point{ .x = 100, .y = 100 };
@@ -75,7 +75,7 @@ fn writeSound(buffer: *SoundBuffer) void {
 
     var i: u32 = 0;
     while (i < buffer.samples_requested) {
-        const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * @intToFloat(f32, PersistGlobal.tone_vol));
+        const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
         buffer.samples[2 * i] = sample_value;
         buffer.samples[2 * i + 1] = sample_value;
         Persist.phase += 2 * std.math.pi / period;
