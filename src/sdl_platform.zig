@@ -49,6 +49,7 @@ pub const SoundBuffer = struct {
 const SdlAudioRingBuffer = struct {
     samples: []SoundSettings.sample_type,
     play_cursor: u32,
+    allocator: Allocator,
     const Self = @This();
 
     pub fn init(allocator: Allocator) !Self {
@@ -58,6 +59,7 @@ const SdlAudioRingBuffer = struct {
                 SoundSettings.sample_rate * SoundSettings.channel_count,
             ),
             .play_cursor = 0,
+            .allocator = allocator,
         };
     }
     pub fn deinit(self: *const Self) void {
@@ -123,8 +125,6 @@ pub fn coreLoop(
     var sound = try SoundBuffer.init(gpa_allocator);
     defer sound.deinit();
 
-    var sdl_audio = try SdlAudioRingBuffer.init(gpa_allocator);
-
     var raw_event: SDL.c.SDL_Event = undefined;
     the_loop: while (true) {
         input.reset();
@@ -178,8 +178,7 @@ pub fn coreLoop(
 
         sound.sample_count = 5;
         soundCallback(&sound);
-        sdl_audio.copySound(&sound);
-        std.debug.print("Read sound: {d}\n", .{sound.samples[0]});
+        platform.process_sound(&sound);
 
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
@@ -250,6 +249,10 @@ pub const SdlPlatform = struct {
     ebo: c_uint = undefined,
     texture: c_uint = undefined,
     shader_program: c_uint = undefined,
+
+    sdl_audio_buffer: SdlAudioRingBuffer = undefined,
+    audio_device: SDL.AudioDevice = undefined,
+
     const vertices = [_]f32{
         // 3 vertex coordinates, 2 texture coordinates
         // The texture coordinate y-components are inverted to account for the
@@ -312,17 +315,22 @@ pub const SdlPlatform = struct {
         try self.createScreenBufferAndTexture(allocator, width, height);
         c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
-        const device = try initSdlAudio();
-        _ = device;
+        self.sdl_audio_buffer = try SdlAudioRingBuffer.init(gpa_allocator);
+        self.audio_device = try initSdlAudio();
+        self.audio_device.pause(false);
     }
 
     pub fn deinit(self: *SdlPlatform) void {
+        self.audio_device.close();
+        self.sdl_audio_buffer.deinit();
+
         self.deinitOpenGLObjects();
         self.screen_buffer.deinit();
         c.ImGui_ImplOpenGL3_Shutdown();
         c.ImGui_ImplSDL2_Shutdown();
         c.igDestroyContext(self.imgui_context);
         SDL.gl.deleteContext(self.gl_context);
+
         self.window.destroy();
         SDL.quit();
     }
@@ -485,5 +493,10 @@ pub const SdlPlatform = struct {
             c.GL_UNSIGNED_INT_8_8_8_8,
             self.screen_buffer.pixels.ptr,
         );
+    }
+
+    pub fn process_sound(self: *SdlPlatform, sound: *const SoundBuffer) void {
+        self.sdl_audio_buffer.copySound(sound);
+        std.debug.print("Read sound: {d}\n", .{sound.samples[0]});
     }
 };
