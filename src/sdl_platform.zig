@@ -13,24 +13,29 @@ pub const AudioSettings = struct {
     pub const buffer_format = SDL.AudioFormat.s16_lsb;
     pub const sample_rate = 48_000;
     pub const channel_count = 2;
-    pub const bytes_per_sample = @sizeOf(sample_type) * channel_count;
+    // A frame consists of channel_count number of samples.
+    // "sample_rate" should actually be "frame_rate".
+    pub const latency_sample_count = (sample_rate / 15) * channel_count;
+    pub const bytes_per_frame = @sizeOf(sample_type) * channel_count;
+    // Our buffers will contain 1 second of samples
+    pub const buffer_size_in_samples = sample_rate * channel_count;
 };
 
 const MAGENTA = 0xFF00FFFF;
 
-pub const AudioTransferBuffer = struct {
+pub const ApplicationAudioBuffer = struct {
     // Linear buffer to transfer audio from application to platform
+    // Application audio callback writes sample_count samples to the beginning of the buffer.
     samples: []AudioSettings.sample_type,
-    sample_count: u32, // Number of samples requested/filled
+    sample_count: u32,
     allocator: Allocator,
     const Self = @This();
 
     fn init(allocator: Allocator) !Self {
         var buffer = Self{
-            // Enough space for 1 second of samples
             .samples = try allocator.alloc(
                 AudioSettings.sample_type,
-                AudioSettings.sample_rate * AudioSettings.channel_count,
+                AudioSettings.buffer_size_in_samples,
             ),
             .sample_count = 0,
             .allocator = allocator,
@@ -48,7 +53,8 @@ pub const AudioTransferBuffer = struct {
 
 const SdlAudioRingBuffer = struct {
     samples: []AudioSettings.sample_type,
-    play_cursor: u32,
+    write_cursor: u32, // next sample to be written
+    play_cursor: u32, // next sample to be played
     allocator: Allocator,
     const Self = @This();
 
@@ -56,8 +62,9 @@ const SdlAudioRingBuffer = struct {
         return Self{
             .samples = try allocator.alloc(
                 AudioSettings.sample_type,
-                AudioSettings.sample_rate * AudioSettings.channel_count,
+                AudioSettings.buffer_size_in_samples,
             ),
+            .write_cursor = 0,
             .play_cursor = 0,
             .allocator = allocator,
         };
@@ -66,17 +73,23 @@ const SdlAudioRingBuffer = struct {
         self.allocator.free(self.samples);
     }
 
-    pub fn copyAudio(self: *Self, audio: *const AudioTransferBuffer) void {
-        _ = self;
-        var region1 = audio.samples[0..audio.sample_count];
+    pub fn copyAudio(self: *Self, buffer: *const ApplicationAudioBuffer) void {
+        // TODO: copy logic from handmade penguin SDLFillSoundBuffer (sdl_handmade.cpp)
+        var region1 = self.samples[0..buffer.sample_count];
         _ = region1;
     }
 };
 
-fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length: c_int) callconv(.C) void {
-    _ = length;
+fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes: c_int) callconv(.C) void {
+    // TODO: copy logic from handmade penguin SDLAudioCallback (sdl_handmade.cpp)
+    _ = length_in_bytes;
+    const audio_buffer = @ptrCast(
+        *const SdlAudioRingBuffer,
+        @alignCast(@alignOf(SdlAudioRingBuffer), userdata),
+    );
+
+    std.debug.print("userdata: {d}\n", .{audio_buffer.samples[0]});
     _ = audio_data;
-    _ = userdata;
 }
 
 fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
@@ -95,7 +108,7 @@ pub fn coreLoop(
     renderCallback: *const fn (*ScreenBuffer) void,
     resizeCallback: *const fn (u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
-    comptime audioCallback: *const fn (*AudioTransferBuffer) void,
+    audioCallback: *const fn (*ApplicationAudioBuffer) void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -122,8 +135,8 @@ pub fn coreLoop(
 
     var input = InputState{};
 
-    var audio = try AudioTransferBuffer.init(gpa_allocator);
-    defer audio.deinit();
+    var application_audio_buffer = try ApplicationAudioBuffer.init(gpa_allocator);
+    defer application_audio_buffer.deinit();
 
     var raw_event: SDL.c.SDL_Event = undefined;
     the_loop: while (true) {
@@ -176,9 +189,7 @@ pub fn coreLoop(
             updateCallback(step);
         }
 
-        audio.sample_count = 5;
-        audioCallback(&audio);
-        platform.process_audio(&audio);
+        platform.process_audio(&application_audio_buffer, audioCallback);
 
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
@@ -250,7 +261,7 @@ pub const SdlPlatform = struct {
     texture: c_uint = undefined,
     shader_program: c_uint = undefined,
 
-    sdl_audio_buffer: SdlAudioRingBuffer = undefined,
+    audio_buffer: SdlAudioRingBuffer = undefined,
     audio_device: SDL.AudioDevice = undefined,
 
     const vertices = [_]f32{
@@ -315,14 +326,14 @@ pub const SdlPlatform = struct {
         try self.createScreenBufferAndTexture(allocator, width, height);
         c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
-        self.sdl_audio_buffer = try SdlAudioRingBuffer.init(gpa_allocator);
-        self.audio_device = try initSdlAudioDevice(&self.sdl_audio_buffer);
+        self.audio_buffer = try SdlAudioRingBuffer.init(gpa_allocator);
+        self.audio_device = try initSdlAudioDevice(&self.audio_buffer);
         self.audio_device.pause(false);
     }
 
     pub fn deinit(self: *SdlPlatform) void {
         self.audio_device.close();
-        self.sdl_audio_buffer.deinit();
+        self.audio_buffer.deinit();
 
         self.deinitOpenGLObjects();
         self.screen_buffer.deinit();
@@ -495,8 +506,23 @@ pub const SdlPlatform = struct {
         );
     }
 
-    pub fn process_audio(self: *SdlPlatform, audio: *const AudioTransferBuffer) void {
-        self.sdl_audio_buffer.copyAudio(audio);
-        std.debug.print("Read audio: {d}\n", .{audio.samples[0]});
+    pub fn process_audio(
+        self: *SdlPlatform,
+        application_buffer: *ApplicationAudioBuffer,
+        application_callback: *const fn (*ApplicationAudioBuffer) void,
+    ) void {
+        const buffer_size = @intCast(u32, self.audio_buffer.samples.len);
+        // Lock to make sure sdlAudioCallback doesn't modify the play_cursor while we are using it
+        // for calculations.
+        self.audio_device.lock();
+        const target_cursor = (self.audio_buffer.play_cursor + AudioSettings.latency_sample_count) % buffer_size;
+        self.audio_device.unlock();
+        if (self.audio_buffer.write_cursor > target_cursor) {
+            application_buffer.sample_count = buffer_size - (self.audio_buffer.write_cursor - target_cursor);
+        } else {
+            application_buffer.sample_count = target_cursor - self.audio_buffer.write_cursor;
+        }
+        application_callback(application_buffer);
+        self.audio_buffer.copyAudio(application_buffer);
     }
 };

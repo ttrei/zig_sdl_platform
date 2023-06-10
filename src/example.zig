@@ -2,7 +2,7 @@ const std = @import("std");
 
 const platform = @import("sdl_platform");
 const InputState = platform.InputState;
-const AudioTransferBuffer = platform.AudioTransferBuffer;
+const ApplicationAudioBuffer = platform.ApplicationAudioBuffer;
 const AudioSettings = platform.AudioSettings;
 
 const gl = @import("handmade_gl");
@@ -67,18 +67,22 @@ fn processInput(input: *const InputState) void {
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
 }
 
-fn writeAudio(buffer: *AudioTransferBuffer) void {
+fn writeAudio(buffer: *ApplicationAudioBuffer) void {
     const Persist = struct {
         var phase: f32 = 0.0;
     };
 
     const period = @intToFloat(f32, AudioSettings.sample_rate / PersistGlobal.tone_hz);
 
+    const frame_count = buffer.sample_count / AudioSettings.channel_count;
     var i: u32 = 0;
-    while (i < buffer.sample_count) {
+    while (i < frame_count) {
         const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
-        buffer.samples[2 * i] = sample_value;
-        buffer.samples[2 * i + 1] = sample_value;
+        var j: u8 = 0;
+        while (j < AudioSettings.channel_count) {
+            buffer.samples[2 * i + j] = sample_value;
+            j += 1;
+        }
         Persist.phase += 2 * std.math.pi / period;
         i += 1;
     }

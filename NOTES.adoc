@@ -40,6 +40,8 @@ Platform executes the callback with a temporary buffer.
 Platform writes sound data from the temporary buffer to the ring buffer.
 SDL reads the sound data from the ring buffer via another callback, defined in the platform.
 
+TODO: almost done with the sine wave, just need to copy data around in the ring buffers.
+
 
 https://wiki.libsdl.org/SDL2/CategoryAudio
 https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
