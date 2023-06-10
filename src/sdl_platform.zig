@@ -8,7 +8,7 @@ const gpa_allocator = gpa.allocator();
 
 const ScreenBuffer = @import("handmade_gl").ScreenBuffer;
 
-pub const SoundSettings = struct {
+pub const AudioSettings = struct {
     pub const sample_type = i16;
     pub const buffer_format = SDL.AudioFormat.s16_lsb;
     pub const sample_rate = 48_000;
@@ -18,9 +18,9 @@ pub const SoundSettings = struct {
 
 const MAGENTA = 0xFF00FFFF;
 
-pub const SoundBuffer = struct {
-    // Linear buffer to transfer sound from application to platform
-    samples: []SoundSettings.sample_type,
+pub const AudioTransferBuffer = struct {
+    // Linear buffer to transfer audio from application to platform
+    samples: []AudioSettings.sample_type,
     sample_count: u32, // Number of samples requested/filled
     allocator: Allocator,
     const Self = @This();
@@ -29,8 +29,8 @@ pub const SoundBuffer = struct {
         var buffer = Self{
             // Enough space for 1 second of samples
             .samples = try allocator.alloc(
-                SoundSettings.sample_type,
-                SoundSettings.sample_rate * SoundSettings.channel_count,
+                AudioSettings.sample_type,
+                AudioSettings.sample_rate * AudioSettings.channel_count,
             ),
             .sample_count = 0,
             .allocator = allocator,
@@ -47,7 +47,7 @@ pub const SoundBuffer = struct {
 };
 
 const SdlAudioRingBuffer = struct {
-    samples: []SoundSettings.sample_type,
+    samples: []AudioSettings.sample_type,
     play_cursor: u32,
     allocator: Allocator,
     const Self = @This();
@@ -55,8 +55,8 @@ const SdlAudioRingBuffer = struct {
     pub fn init(allocator: Allocator) !Self {
         return Self{
             .samples = try allocator.alloc(
-                SoundSettings.sample_type,
-                SoundSettings.sample_rate * SoundSettings.channel_count,
+                AudioSettings.sample_type,
+                AudioSettings.sample_rate * AudioSettings.channel_count,
             ),
             .play_cursor = 0,
             .allocator = allocator,
@@ -66,9 +66,9 @@ const SdlAudioRingBuffer = struct {
         self.allocator.free(self.samples);
     }
 
-    pub fn copySound(self: *Self, sound: *const SoundBuffer) void {
+    pub fn copyAudio(self: *Self, audio: *const AudioTransferBuffer) void {
         _ = self;
-        var region1 = sound.samples[0..sound.sample_count];
+        var region1 = audio.samples[0..audio.sample_count];
         _ = region1;
     }
 };
@@ -79,11 +79,11 @@ fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length: c_int) ca
     _ = userdata;
 }
 
-fn initSdlAudio() !SDL.AudioDevice {
+fn initSdlAudioDevice() !SDL.AudioDevice {
     const result = try SDL.openAudioDevice(.{ .desired_spec = .{
-        .sample_rate = SoundSettings.sample_rate,
-        .buffer_format = SoundSettings.buffer_format,
-        .channel_count = SoundSettings.channel_count,
+        .sample_rate = AudioSettings.sample_rate,
+        .buffer_format = AudioSettings.buffer_format,
+        .channel_count = AudioSettings.channel_count,
         .callback = sdlAudioCallback,
         .userdata = null,
     } });
@@ -95,7 +95,7 @@ pub fn coreLoop(
     renderCallback: *const fn (*ScreenBuffer) void,
     resizeCallback: *const fn (u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
-    comptime soundCallback: *const fn (*SoundBuffer) void,
+    comptime audioCallback: *const fn (*AudioTransferBuffer) void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -122,8 +122,8 @@ pub fn coreLoop(
 
     var input = InputState{};
 
-    var sound = try SoundBuffer.init(gpa_allocator);
-    defer sound.deinit();
+    var audio = try AudioTransferBuffer.init(gpa_allocator);
+    defer audio.deinit();
 
     var raw_event: SDL.c.SDL_Event = undefined;
     the_loop: while (true) {
@@ -176,9 +176,9 @@ pub fn coreLoop(
             updateCallback(step);
         }
 
-        sound.sample_count = 5;
-        soundCallback(&sound);
-        platform.process_sound(&sound);
+        audio.sample_count = 5;
+        audioCallback(&audio);
+        platform.process_audio(&audio);
 
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
@@ -316,7 +316,7 @@ pub const SdlPlatform = struct {
         c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
         self.sdl_audio_buffer = try SdlAudioRingBuffer.init(gpa_allocator);
-        self.audio_device = try initSdlAudio();
+        self.audio_device = try initSdlAudioDevice();
         self.audio_device.pause(false);
     }
 
@@ -495,8 +495,8 @@ pub const SdlPlatform = struct {
         );
     }
 
-    pub fn process_sound(self: *SdlPlatform, sound: *const SoundBuffer) void {
-        self.sdl_audio_buffer.copySound(sound);
-        std.debug.print("Read sound: {d}\n", .{sound.samples[0]});
+    pub fn process_audio(self: *SdlPlatform, audio: *const AudioTransferBuffer) void {
+        self.sdl_audio_buffer.copyAudio(audio);
+        std.debug.print("Read audio: {d}\n", .{audio.samples[0]});
     }
 };

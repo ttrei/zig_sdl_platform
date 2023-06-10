@@ -2,8 +2,8 @@ const std = @import("std");
 
 const platform = @import("sdl_platform");
 const InputState = platform.InputState;
-const SoundBuffer = platform.SoundBuffer;
-const SoundSettings = platform.SoundSettings;
+const AudioTransferBuffer = platform.AudioTransferBuffer;
+const AudioSettings = platform.AudioSettings;
 
 const gl = @import("handmade_gl");
 const ScreenBuffer = gl.screen.ScreenBuffer;
@@ -29,7 +29,7 @@ pub fn main() !void {
     // try polygon.add_vertex(Point{ .x = 200, .y = 100 });
     // try polygon.add_vertex(Point{ .x = 300, .y = 300 });
 
-    try platform.coreLoop(update, render, resize, processInput, writeSound);
+    try platform.coreLoop(update, render, resize, processInput, writeAudio);
 }
 
 fn update(step: f64) void {
@@ -67,12 +67,12 @@ fn processInput(input: *const InputState) void {
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
 }
 
-fn writeSound(buffer: *SoundBuffer) void {
+fn writeAudio(buffer: *AudioTransferBuffer) void {
     const Persist = struct {
         var phase: f32 = 0.0;
     };
 
-    const period = @intToFloat(f32, SoundSettings.sample_rate / PersistGlobal.tone_hz);
+    const period = @intToFloat(f32, AudioSettings.sample_rate / PersistGlobal.tone_hz);
 
     var i: u32 = 0;
     while (i < buffer.sample_count) {
