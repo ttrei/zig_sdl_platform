@@ -1,9 +1,11 @@
 const std = @import("std");
 
 const platform = @import("sdl_platform");
+const InputState = platform.InputState;
+const SoundBuffer = platform.SoundBuffer;
+
 const gl = @import("handmade_gl");
 const ScreenBuffer = gl.screen.ScreenBuffer;
-
 const geometry = gl.geometry;
 const Polygon = geometry.Polygon;
 const Point = geometry.Point;
@@ -55,18 +57,18 @@ fn resize(width: u32, height: u32) void {
     _ = height;
 }
 
-fn processInput(input: *const platform.InputState) void {
+fn processInput(input: *const InputState) void {
     if (input.mouse_left_down) {
         polygon.add_vertex(Point{ .x = input.mouse_x, .y = input.mouse_y }) catch unreachable;
     }
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
 }
 
-var i: u8 = 0;
+var i: i16 = 0;
 
-fn writeSound(buffer: []u8) void {
-    const val = i % 60;
-    std.debug.print("Writing sound: {d}\n", .{val});
-    buffer[0] = val;
+fn writeSound(buffer: *SoundBuffer) void {
+    const val = @mod(i, 60);
+    std.debug.print("Writing sound: {d}, i={d}\n", .{ val, i });
+    buffer.samples[0] = val;
     i += 1;
 }

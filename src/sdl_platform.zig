@@ -10,12 +10,37 @@ const ScreenBuffer = @import("handmade_gl").ScreenBuffer;
 
 const MAGENTA = 0xFF00FFFF;
 
+pub const SoundBuffer = struct {
+    samples: []i16,
+    samples_per_second: u32,
+    allocator: Allocator,
+    requested_sample_count: ?u32 = null,
+
+    pub fn init(allocator: Allocator, samples_per_second: u32, channels: u8) !SoundBuffer {
+        // TODO: Generalize to arbitrary sample types
+        var buffer = SoundBuffer{
+            .samples_per_second = samples_per_second,
+            // Enough space for 1 second of samples
+            .samples = try allocator.alloc(i16, samples_per_second * channels),
+            .allocator = allocator,
+        };
+        for (buffer.samples) |*sample| {
+            // Initialize to silence
+            sample.* = 0;
+        }
+        return buffer;
+    }
+    pub fn deinit(self: *const SoundBuffer) void {
+        self.allocator.free(self.samples);
+    }
+};
+
 pub fn coreLoop(
     updateCallback: *const fn (f64) void,
     renderCallback: *const fn (*ScreenBuffer) void,
     resizeCallback: *const fn (u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
-    soundCallback: *const fn ([]u8) void,
+    soundCallback: *const fn (*SoundBuffer) void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -42,8 +67,8 @@ pub fn coreLoop(
 
     var input = InputState{};
 
-    var sound_buffer = try gpa_allocator.alloc(u8, 100);
-    defer gpa_allocator.free(sound_buffer);
+    var sound = try SoundBuffer.init(gpa_allocator, 48_000, 2);
+    defer sound.deinit();
 
     var raw_event: SDL.c.SDL_Event = undefined;
     the_loop: while (true) {
@@ -96,8 +121,8 @@ pub fn coreLoop(
             updateCallback(step);
         }
 
-        soundCallback(sound_buffer);
-        std.debug.print("Read sound: {d}\n", .{sound_buffer[0]});
+        soundCallback(&sound);
+        std.debug.print("Read sound: {d}\n", .{sound.samples[0]});
 
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
