@@ -3,6 +3,7 @@ const std = @import("std");
 const platform = @import("sdl_platform");
 const InputState = platform.InputState;
 const SoundBuffer = platform.SoundBuffer;
+const SoundSettings = platform.SoundSettings;
 
 const gl = @import("handmade_gl");
 const ScreenBuffer = gl.screen.ScreenBuffer;
@@ -71,10 +72,10 @@ fn writeSound(buffer: *SoundBuffer) void {
         var phase: f32 = 0.0;
     };
 
-    const period = @intToFloat(f32, buffer.samples_per_second / PersistGlobal.tone_hz);
+    const period = @intToFloat(f32, SoundSettings.sample_rate / PersistGlobal.tone_hz);
 
     var i: u32 = 0;
-    while (i < buffer.samples_requested) {
+    while (i < buffer.sample_count) {
         const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
         buffer.samples[2 * i] = sample_value;
         buffer.samples[2 * i + 1] = sample_value;
