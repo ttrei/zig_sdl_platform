@@ -12,9 +12,11 @@ const Point = geometry.Point;
 
 var polygon: Polygon = undefined;
 
-const S = struct {
+const PersistGlobal = struct {
     var show_demo_window: bool = false;
     var scale: f32 = 1;
+    var tone_hz: u32 = 440;
+    var tone_vol: i16 = 3000;
 };
 
 const p0 = Point{ .x = 100, .y = 100 };
@@ -33,7 +35,7 @@ fn update(step: f64) void {
     _ = step;
 
     // const p = &polygon.first.p;
-    // p.* = geometry.scalePoint(p0, S.scale);
+    // p.* = geometry.scalePoint(p0, PersistGlobal.scale);
 }
 
 fn render(buffer: *ScreenBuffer) void {
@@ -46,10 +48,10 @@ fn render(buffer: *ScreenBuffer) void {
 
     polygon.draw(buffer, red);
 
-    _ = platform.c.igSliderFloat("scale", &S.scale, 0, 10, "%.02f", 0);
+    _ = platform.c.igSliderFloat("scale", &PersistGlobal.scale, 0, 10, "%.02f", 0);
     platform.imguiText("Area: {d:.2}", .{polygon.area2()});
 
-    if (S.show_demo_window) platform.c.igShowDemoWindow(&S.show_demo_window);
+    if (PersistGlobal.show_demo_window) platform.c.igShowDemoWindow(&PersistGlobal.show_demo_window);
 }
 
 fn resize(width: u32, height: u32) void {
@@ -64,11 +66,19 @@ fn processInput(input: *const InputState) void {
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
 }
 
-var i: i16 = 0;
-
 fn writeSound(buffer: *SoundBuffer) void {
-    const val = @mod(i, 60);
-    std.debug.print("Writing sound: {d}, i={d}\n", .{ val, i });
-    buffer.samples[0] = val;
-    i += 1;
+    const Persist = struct {
+        var phase: f32 = 0.0;
+    };
+
+    const period = @intToFloat(f32, buffer.samples_per_second / PersistGlobal.tone_hz);
+
+    var i: u32 = 0;
+    while (i < buffer.samples_requested) {
+        const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * @intToFloat(f32, PersistGlobal.tone_vol));
+        buffer.samples[2 * i] = sample_value;
+        buffer.samples[2 * i + 1] = sample_value;
+        Persist.phase += 2 * std.math.pi / period;
+        i += 1;
+    }
 }

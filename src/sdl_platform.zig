@@ -14,7 +14,8 @@ pub const SoundBuffer = struct {
     samples: []i16,
     samples_per_second: u32,
     allocator: Allocator,
-    requested_sample_count: ?u32 = null,
+    // Platform will request a variable number of samples from the application
+    samples_requested: u32 = 0,
 
     pub fn init(allocator: Allocator, samples_per_second: u32, channels: u8) !SoundBuffer {
         // TODO: Generalize to arbitrary sample types
@@ -121,6 +122,7 @@ pub fn coreLoop(
             updateCallback(step);
         }
 
+        sound.samples_requested = 5;
         soundCallback(&sound);
         std.debug.print("Read sound: {d}\n", .{sound.samples[0]});
 
