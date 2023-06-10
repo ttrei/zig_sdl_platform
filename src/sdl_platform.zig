@@ -79,13 +79,13 @@ fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length: c_int) ca
     _ = userdata;
 }
 
-fn initSdlAudioDevice() !SDL.AudioDevice {
+fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
     const result = try SDL.openAudioDevice(.{ .desired_spec = .{
         .sample_rate = AudioSettings.sample_rate,
         .buffer_format = AudioSettings.buffer_format,
         .channel_count = AudioSettings.channel_count,
         .callback = sdlAudioCallback,
-        .userdata = null,
+        .userdata = @ptrCast(*anyopaque, audio_buffer),
     } });
     return result.device;
 }
@@ -316,7 +316,7 @@ pub const SdlPlatform = struct {
         c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
         self.sdl_audio_buffer = try SdlAudioRingBuffer.init(gpa_allocator);
-        self.audio_device = try initSdlAudioDevice();
+        self.audio_device = try initSdlAudioDevice(&self.sdl_audio_buffer);
         self.audio_device.pause(false);
     }
 
