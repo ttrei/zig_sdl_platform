@@ -78,30 +78,47 @@ const SdlAudioRingBuffer = struct {
             var source = buffer.samples[0..buffer.sample_count];
             var target = self.samples[self.write_cursor .. self.write_cursor + buffer.sample_count];
             @memcpy(target, source);
+            self.write_cursor += buffer.sample_count;
         } else {
             // wrap-around
-            const region1_size = self.samples.len - self.write_cursor;
-            const region2_size = buffer.sample_count - region1_size;
+            const region1_size = @intCast(u32, self.samples.len - self.write_cursor);
+            const region2_size = @intCast(u32, buffer.sample_count - region1_size);
             var source = buffer.samples[0..region1_size];
             var target = self.samples[self.write_cursor..];
             @memcpy(target, source);
             source = buffer.samples[region1_size..buffer.sample_count];
             target = self.samples[0..region2_size];
             @memcpy(target, source);
+            self.write_cursor = region2_size;
         }
     }
 };
 
 fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes: c_int) callconv(.C) void {
-    // TODO: copy logic from handmade penguin SDLAudioCallback (sdl_handmade.cpp)
-    _ = length_in_bytes;
     const audio_buffer = @ptrCast(
         *const SdlAudioRingBuffer,
         @alignCast(@alignOf(SdlAudioRingBuffer), userdata),
     );
 
+    const length = @intCast(u32, length_in_bytes);
+
+    const bps = @sizeOf(AudioSettings.sample_type); // bytes per sample
+    const buffer_size_in_bytes = bps * audio_buffer.samples.len;
+
+    if (audio_buffer.play_cursor * bps + length < buffer_size_in_bytes) {
+        var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bps;
+        var i: usize = 0;
+        while (i < length) {
+            audio_data[i] = source[i];
+            i += 1;
+        }
+    } else {
+        // TODO: wrap-around
+    }
+
     std.debug.print("userdata: {d}\n", .{audio_buffer.samples[0]});
-    _ = audio_data;
+
+    // audio_buffer.play_cursor =
 }
 
 fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
