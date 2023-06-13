@@ -12,9 +12,9 @@ pub const AudioSettings = struct {
     pub const sample_type = i16;
     pub const buffer_format = SDL.AudioFormat.s16_lsb;
     pub const sample_rate = 48_000;
-    pub const channel_count = 2;
     // A frame consists of channel_count number of samples.
-    // "sample_rate" should actually be "frame_rate".
+    // "sample_rate" actually means "frame rate".
+    pub const channel_count = 2;
     pub const latency_sample_count = (sample_rate / 15) * channel_count;
     pub const bytes_per_frame = @sizeOf(sample_type) * channel_count;
     // Our buffers will contain 1 second of samples
@@ -74,9 +74,21 @@ const SdlAudioRingBuffer = struct {
     }
 
     pub fn copyAudio(self: *Self, buffer: *const ApplicationAudioBuffer) void {
-        // TODO: copy logic from handmade penguin SDLFillSoundBuffer (sdl_handmade.cpp)
-        var region1 = self.samples[0..buffer.sample_count];
-        _ = region1;
+        if (self.write_cursor + buffer.sample_count < self.samples.len) {
+            var source = buffer.samples[0..buffer.sample_count];
+            var target = self.samples[self.write_cursor .. self.write_cursor + buffer.sample_count];
+            @memcpy(target, source);
+        } else {
+            // wrap-around
+            const region1_size = self.samples.len - self.write_cursor;
+            const region2_size = buffer.sample_count - region1_size;
+            var source = buffer.samples[0..region1_size];
+            var target = self.samples[self.write_cursor..];
+            @memcpy(target, source);
+            source = buffer.samples[region1_size..buffer.sample_count];
+            target = self.samples[0..region2_size];
+            @memcpy(target, source);
+        }
     }
 };
 

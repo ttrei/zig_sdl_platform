@@ -80,7 +80,7 @@ fn writeAudio(buffer: *ApplicationAudioBuffer) void {
         const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
         var j: u8 = 0;
         while (j < AudioSettings.channel_count) {
-            buffer.samples[2 * i + j] = sample_value;
+            buffer.samples[AudioSettings.channel_count * i + j] = sample_value;
             j += 1;
         }
         Persist.phase += 2 * std.math.pi / period;
