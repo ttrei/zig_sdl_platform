@@ -95,43 +95,65 @@ const SdlAudioRingBuffer = struct {
 };
 
 fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes_c: c_int) callconv(.C) void {
-    const audio_buffer = @ptrCast(
-        *const SdlAudioRingBuffer,
-        @alignCast(@alignOf(SdlAudioRingBuffer), userdata),
-    );
+    _ = userdata;
+    const Persist = struct {
+        var phase: f32 = 0.0;
+    };
 
-    const length_in_bytes = @intCast(u32, length_in_bytes_c);
+    var audio_data_i16 = @ptrCast([*]i16, @alignCast(2, audio_data));
 
-    const bytes_per_sample = @sizeOf(AudioSettings.sample_type); // bytes per sample
-    const buffer_size_in_bytes = bytes_per_sample * audio_buffer.samples.len;
+    const period = @intToFloat(f32, AudioSettings.sample_rate / 440);
 
-    if (audio_buffer.play_cursor * bytes_per_sample + length_in_bytes < buffer_size_in_bytes) {
-        var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bytes_per_sample;
-        var i: usize = 0;
-        while (i < length_in_bytes) {
-            audio_data[i] = source[i];
-            i += 1;
+    var i: u32 = 0;
+    const num_frames = @intCast(u32, length_in_bytes_c) / 2 / AudioSettings.channel_count;
+    while (i < num_frames) {
+        const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * 440);
+        var j: u8 = 0;
+        while (j < AudioSettings.channel_count) {
+            audio_data_i16[AudioSettings.channel_count * i + j] = sample_value;
+            j += 1;
         }
-    } else {
-        const region1_size = buffer_size_in_bytes - audio_buffer.play_cursor * bytes_per_sample;
-        const region2_size = length_in_bytes - region1_size;
-        var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bytes_per_sample;
-        var i: usize = 0;
-        while (i < region1_size) {
-            audio_data[i] = source[i];
-            i += 1;
-        }
-        source = @ptrCast([*]u8, audio_buffer.samples.ptr);
-        i = 0;
-        while (i < region2_size) {
-            audio_data[region1_size + i] = source[i];
-            i += 1;
-        }
+        Persist.phase += 2 * std.math.pi / period;
+        i += 1;
     }
 
-    std.debug.print("userdata: {d}\n", .{audio_buffer.samples[0]});
+    // const audio_buffer = @ptrCast(
+    //     *const SdlAudioRingBuffer,
+    //     @alignCast(@alignOf(SdlAudioRingBuffer), userdata),
+    // );
 
-    // audio_buffer.play_cursor =
+    // const length_in_bytes = @intCast(u32, length_in_bytes_c);
+
+    // const bytes_per_sample = @sizeOf(AudioSettings.sample_type); // bytes per sample
+    // const buffer_size_in_bytes = bytes_per_sample * audio_buffer.samples.len;
+
+    // if (audio_buffer.play_cursor * bytes_per_sample + length_in_bytes < buffer_size_in_bytes) {
+    //     var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bytes_per_sample;
+    //     var i: usize = 0;
+    //     while (i < length_in_bytes) {
+    //         audio_data[i] = source[i];
+    //         i += 1;
+    //     }
+    // } else {
+    //     const region1_size = buffer_size_in_bytes - audio_buffer.play_cursor * bytes_per_sample;
+    //     const region2_size = length_in_bytes - region1_size;
+    //     var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bytes_per_sample;
+    //     var i: usize = 0;
+    //     while (i < region1_size) {
+    //         audio_data[i] = source[i];
+    //         i += 1;
+    //     }
+    //     source = @ptrCast([*]u8, audio_buffer.samples.ptr);
+    //     i = 0;
+    //     while (i < region2_size) {
+    //         audio_data[region1_size + i] = source[i];
+    //         i += 1;
+    //     }
+    // }
+
+    // std.debug.print("userdata: {d}\n", .{audio_buffer.samples[0]});
+
+    // // audio_buffer.play_cursor =
 }
 
 fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
