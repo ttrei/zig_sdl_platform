@@ -94,26 +94,39 @@ const SdlAudioRingBuffer = struct {
     }
 };
 
-fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes: c_int) callconv(.C) void {
+fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes_c: c_int) callconv(.C) void {
     const audio_buffer = @ptrCast(
         *const SdlAudioRingBuffer,
         @alignCast(@alignOf(SdlAudioRingBuffer), userdata),
     );
 
-    const length = @intCast(u32, length_in_bytes);
+    const length_in_bytes = @intCast(u32, length_in_bytes_c);
 
-    const bps = @sizeOf(AudioSettings.sample_type); // bytes per sample
-    const buffer_size_in_bytes = bps * audio_buffer.samples.len;
+    const bytes_per_sample = @sizeOf(AudioSettings.sample_type); // bytes per sample
+    const buffer_size_in_bytes = bytes_per_sample * audio_buffer.samples.len;
 
-    if (audio_buffer.play_cursor * bps + length < buffer_size_in_bytes) {
-        var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bps;
+    if (audio_buffer.play_cursor * bytes_per_sample + length_in_bytes < buffer_size_in_bytes) {
+        var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bytes_per_sample;
         var i: usize = 0;
-        while (i < length) {
+        while (i < length_in_bytes) {
             audio_data[i] = source[i];
             i += 1;
         }
     } else {
-        // TODO: wrap-around
+        const region1_size = buffer_size_in_bytes - audio_buffer.play_cursor * bytes_per_sample;
+        const region2_size = length_in_bytes - region1_size;
+        var source = @ptrCast([*]u8, audio_buffer.samples.ptr) + audio_buffer.play_cursor * bytes_per_sample;
+        var i: usize = 0;
+        while (i < region1_size) {
+            audio_data[i] = source[i];
+            i += 1;
+        }
+        source = @ptrCast([*]u8, audio_buffer.samples.ptr);
+        i = 0;
+        while (i < region2_size) {
+            audio_data[region1_size + i] = source[i];
+            i += 1;
+        }
     }
 
     std.debug.print("userdata: {d}\n", .{audio_buffer.samples[0]});
