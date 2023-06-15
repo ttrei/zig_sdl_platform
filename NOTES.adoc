@@ -7,6 +7,10 @@ https://davidgow.net/handmadepenguin/default.html
 
 == TODO
 
+=== Try to use https://github.com/SpexGuy/Zig-ImGui
+
+== DONE
+
 === Add sound
 
 These chapters from Handmade Penguing is exactly what I need:
@@ -40,9 +44,6 @@ Platform executes the callback with a temporary buffer.
 Platform writes sound data from the temporary buffer to the ring buffer.
 SDL reads the sound data from the ring buffer via another callback, defined in the platform.
 
-TODO: almost done with the sine wave, just need to copy data around in the ring buffers.
-
-
 https://wiki.libsdl.org/SDL2/CategoryAudio
 https://github.com/jakebesworth/Simple-SDL2-Audio/blob/master/src/audio.c
 
@@ -52,10 +53,6 @@ https://wiki.libsdl.org/SDL2/SDL_PauseAudioDevice
 https://wiki.libsdl.org/SDL2/SDL_CloseAudioDevice
 https://github.com/MasterQ32/SDL.zig/blob/fbe5f599c65b7a5642990443b2a686d1c53a4985/src/wrapper/sdl.zig#L2573
 https://wiki.libsdl.org/SDL2/SDL_MixAudioFormat
-
-=== Try to use https://github.com/SpexGuy/Zig-ImGui
-
-== DONE
 
 === Fix the example application on NixOS
 
