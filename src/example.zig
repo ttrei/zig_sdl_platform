@@ -16,7 +16,7 @@ var polygon: Polygon = undefined;
 const PersistGlobal = struct {
     var show_demo_window: bool = false;
     var scale: f32 = 1;
-    var tone_hz: u32 = 440;
+    var tone_hz: f64 = 440.0;
     var tone_vol: f32 = 3000.0;
 };
 
@@ -34,6 +34,8 @@ pub fn main() !void {
 
 fn update(step: f64) void {
     _ = step;
+    // PersistGlobal.tone_hz *= 1.0005;
+    PersistGlobal.tone_hz *= 0.9995;
 
     // const p = &polygon.first.p;
     // p.* = geometry.scalePoint(p0, PersistGlobal.scale);
@@ -69,10 +71,10 @@ fn processInput(input: *const InputState) void {
 
 fn writeAudio(buffer: *ApplicationAudioBuffer) void {
     const Persist = struct {
-        var phase: f32 = 0.0;
+        var phase: f64 = 0.0;
     };
 
-    const period = @intToFloat(f32, AudioSettings.sample_rate / PersistGlobal.tone_hz);
+    const period = @intToFloat(f32, AudioSettings.sample_rate) / PersistGlobal.tone_hz;
     const two_pi = 2 * std.math.pi;
 
     const frame_count = buffer.sample_count / AudioSettings.channel_count;
