@@ -73,8 +73,10 @@ fn writeAudio(buffer: *ApplicationAudioBuffer) void {
     };
 
     const period = @intToFloat(f32, AudioSettings.sample_rate / PersistGlobal.tone_hz);
+    const two_pi = 2 * std.math.pi;
 
     const frame_count = buffer.sample_count / AudioSettings.channel_count;
+
     var i: u32 = 0;
     while (i < frame_count) {
         const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
@@ -83,7 +85,7 @@ fn writeAudio(buffer: *ApplicationAudioBuffer) void {
             buffer.samples[AudioSettings.channel_count * i + j] = sample_value;
             j += 1;
         }
-        Persist.phase += 2 * std.math.pi / period;
+        Persist.phase = @mod(Persist.phase + two_pi / period, two_pi);
         i += 1;
     }
 }
