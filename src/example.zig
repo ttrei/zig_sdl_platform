@@ -67,6 +67,9 @@ fn processInput(input: *const InputState) void {
         polygon.add_vertex(Point{ .x = input.mouse_x, .y = input.mouse_y }) catch unreachable;
     }
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
+    const factor = (@intToFloat(f64, input.controller_left_y) + 32768) / 32768;
+    PersistGlobal.tone_hz = 440.0 * factor;
+    std.debug.print("{d}\t{d}\n", .{ input.controller_left_x, input.controller_left_y });
 }
 
 fn writeAudio(buffer: *ApplicationAudioBuffer) void {

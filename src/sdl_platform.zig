@@ -182,6 +182,10 @@ pub fn coreLoop(
 
     var input = InputState{};
 
+    if (try SDL.numJoysticks() > 0) {
+        _ = try SDL.GameController.open(0);
+    }
+
     var application_audio_buffer = try ApplicationAudioBuffer.init(gpa_allocator);
     defer application_audio_buffer.deinit();
 
@@ -212,6 +216,15 @@ pub fn coreLoop(
                     switch (ev.button) {
                         .left => input.mouse_left_down = true,
                         .right => input.mouse_right_down = true,
+                        else => {},
+                    }
+                },
+                .controller_axis_motion => |ev| {
+                    switch (ev.axis) {
+                        .left_x => input.controller_left_x = ev.value,
+                        .left_y => input.controller_left_y = ev.value,
+                        .right_x => input.controller_right_x = ev.value,
+                        .right_y => input.controller_right_y = ev.value,
                         else => {},
                     }
                 },
@@ -281,6 +294,11 @@ pub const InputState = struct {
 
     mouse_left_down: bool = false,
     mouse_right_down: bool = false,
+
+    controller_left_x: i16 = 0,
+    controller_left_y: i16 = 0,
+    controller_right_x: i16 = 0,
+    controller_right_y: i16 = 0,
 
     key_space_down: bool = false,
     key_s_down: bool = false,
