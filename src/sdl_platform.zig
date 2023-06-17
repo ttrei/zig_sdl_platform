@@ -15,6 +15,8 @@ pub const AudioSettings = struct {
     // A frame consists of channel_count number of samples.
     // "sample_rate" actually means "frame rate".
     pub const channel_count = 2;
+    // Number of samples that we will ask the application to write.
+    // It must be larger than the number of samples requested by SDL callback.
     pub const latency_sample_count = (sample_rate / 10) * channel_count;
     pub const bytes_per_frame = @sizeOf(sample_type) * channel_count;
     // Our buffers will contain 1 second of samples
@@ -104,7 +106,7 @@ fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes_c
     );
 
     const length_in_bytes = @intCast(u32, length_in_bytes_c);
-    const bytes_per_sample = @sizeOf(AudioSettings.sample_type); // bytes per sample
+    const bytes_per_sample = @sizeOf(AudioSettings.sample_type);
     const buffer_size_in_bytes = bytes_per_sample * audio_buffer.samples.len;
 
     if (audio_buffer.play_cursor * bytes_per_sample + length_in_bytes < buffer_size_in_bytes) {
