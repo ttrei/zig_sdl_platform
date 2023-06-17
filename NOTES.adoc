@@ -7,6 +7,8 @@ https://davidgow.net/handmadepenguin/default.html
 
 == TODO
 
+=== Pass controller input to the application
+
 === Try to use https://github.com/SpexGuy/Zig-ImGui
 
 == DONE
