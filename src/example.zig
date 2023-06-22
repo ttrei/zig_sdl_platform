@@ -67,7 +67,7 @@ fn processInput(input: *const InputState) void {
         polygon.add_vertex(Point{ .x = input.mouse_x, .y = input.mouse_y }) catch unreachable;
     }
     polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
-    const factor = (@intToFloat(f64, input.controller_left_y) + 32768) / 32768;
+    const factor = (@floatFromInt(f64, input.controller_left_y) + 32768) / 32768;
     PersistGlobal.tone_hz = 440.0 * factor;
     std.debug.print("{d}\t{d}\n", .{ input.controller_left_x, input.controller_left_y });
 }
@@ -77,14 +77,14 @@ fn writeAudio(buffer: *ApplicationAudioBuffer) void {
         var phase: f64 = 0.0;
     };
 
-    const period = @intToFloat(f32, AudioSettings.sample_rate) / PersistGlobal.tone_hz;
+    const period = @floatFromInt(f32, AudioSettings.sample_rate) / PersistGlobal.tone_hz;
     const two_pi = 2 * std.math.pi;
 
     const frame_count = buffer.sample_count / AudioSettings.channel_count;
 
     var i: u32 = 0;
     while (i < frame_count) {
-        const sample_value = @floatToInt(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
+        const sample_value = @intFromFloat(i16, std.math.sin(Persist.phase) * PersistGlobal.tone_vol);
         var j: u8 = 0;
         while (j < AudioSettings.channel_count) {
             buffer.samples[AudioSettings.channel_count * i + j] = sample_value;

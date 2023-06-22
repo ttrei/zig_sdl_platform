@@ -162,7 +162,7 @@ pub fn coreLoop(
     const TARGET_FPS = 60;
     const SIMULATION_UPS = 100;
 
-    const step = @intToFloat(f64, 1) / SIMULATION_UPS;
+    const step = @floatFromInt(f64, 1) / SIMULATION_UPS;
     const ns_per_update = std.time.ns_per_s / SIMULATION_UPS;
 
     var platform = SdlPlatform{};
@@ -261,7 +261,7 @@ pub fn coreLoop(
 
         // update FPS twice per second
         if (fps_frame_count > TARGET_FPS / 2) {
-            fps = @intToFloat(f32, fps_frame_count) * std.time.ns_per_s / @intToFloat(f32, fps_accumulator);
+            fps = @floatFromInt(f32, fps_frame_count) * std.time.ns_per_s / @floatFromInt(f32, fps_accumulator);
             fps_accumulator = 0;
             fps_frame_count = 0;
         }
@@ -435,7 +435,7 @@ pub const SdlPlatform = struct {
         c.glUseProgram(self.shader_program);
         c.glBindVertexArray(self.vao);
         // Draw the full-screen quad
-        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @intToPtr(*allowzero anyopaque, 0));
+        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(*allowzero anyopaque, 0));
 
         // ImGui
         c.igRender();
@@ -455,10 +455,10 @@ pub const SdlPlatform = struct {
         c.glBindBuffer(c.GL_ARRAY_BUFFER, self.vbo);
         c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, c.GL_STATIC_DRAW);
         // vertex attribute for coordinates
-        c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @intToPtr(*allowzero anyopaque, 0));
+        c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(*allowzero anyopaque, 0));
         c.glEnableVertexAttribArray(0);
         // vertex attribute for texture coordinates
-        c.glVertexAttribPointer(1, 2, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @intToPtr(*anyopaque, 3 * @sizeOf(f32)));
+        c.glVertexAttribPointer(1, 2, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(*anyopaque, 3 * @sizeOf(f32)));
         c.glEnableVertexAttribArray(1);
         c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
 
