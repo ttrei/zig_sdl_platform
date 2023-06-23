@@ -34,7 +34,6 @@ pub fn build(b: *std.build.Builder) void {
     var platform_module = b.addModule("platform", .{
         .source_file = FileSource.relative("src/sdl_platform.zig"),
         .dependencies = &.{
-            .{ .name = "handmade_gl", .module = handmade_gl_module },
             .{ .name = "sdl2", .module = sdk.sdl_sdk.getWrapperModule() },
         },
     });

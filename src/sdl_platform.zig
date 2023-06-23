@@ -6,8 +6,6 @@ const Allocator = std.mem.Allocator;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 const gpa_allocator = gpa.allocator();
 
-const ScreenBuffer = @import("handmade_gl").ScreenBuffer;
-
 pub const AudioSettings = struct {
     pub const sample_type = i16;
     pub const buffer_format = SDL.AudioFormat.s16_lsb;
@@ -25,22 +23,25 @@ pub const AudioSettings = struct {
 
 const MAGENTA = 0xFF00FFFF;
 
+const Global = struct {
+    var screen_width: u32 = undefined;
+    var screen_height: u32 = undefined;
+};
+
 pub const ApplicationAudioBuffer = struct {
     // Linear buffer to transfer audio from application to platform
     // Application audio callback writes sample_count samples to the beginning of the buffer.
     samples: []AudioSettings.sample_type,
     sample_count: u32,
-    allocator: Allocator,
     const Self = @This();
 
-    fn init(allocator: Allocator) !Self {
+    fn init() !Self {
         var buffer = Self{
-            .samples = try allocator.alloc(
+            .samples = try gpa_allocator.alloc(
                 AudioSettings.sample_type,
                 AudioSettings.buffer_size_in_samples,
             ),
             .sample_count = 0,
-            .allocator = allocator,
         };
         // Initialize to silence
         for (buffer.samples) |*sample| {
@@ -49,7 +50,7 @@ pub const ApplicationAudioBuffer = struct {
         return buffer;
     }
     fn deinit(self: *const Self) void {
-        self.allocator.free(self.samples);
+        gpa_allocator.free(self.samples);
     }
 };
 
@@ -57,22 +58,20 @@ const SdlAudioRingBuffer = struct {
     samples: []AudioSettings.sample_type,
     write_cursor: u32, // next sample to be written
     play_cursor: u32, // next sample to be played
-    allocator: Allocator,
     const Self = @This();
 
-    pub fn init(allocator: Allocator) !Self {
+    pub fn init() !Self {
         return Self{
-            .samples = try allocator.alloc(
+            .samples = try gpa_allocator.alloc(
                 AudioSettings.sample_type,
                 AudioSettings.buffer_size_in_samples,
             ),
             .write_cursor = 0,
             .play_cursor = 0,
-            .allocator = allocator,
         };
     }
     pub fn deinit(self: *const Self) void {
-        self.allocator.free(self.samples);
+        gpa_allocator.free(self.samples);
     }
 
     pub fn copyAudio(self: *Self, buffer: *const ApplicationAudioBuffer) void {
@@ -152,7 +151,7 @@ fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
 
 pub fn coreLoop(
     updateCallback: *const fn (f64) void,
-    renderCallback: *const fn (*ScreenBuffer) void,
+    renderCallback: *const fn ([]u32, u32, u32) void,
     resizeCallback: *const fn (u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
     audioCallback: *const fn (*ApplicationAudioBuffer) void,
@@ -166,7 +165,7 @@ pub fn coreLoop(
     const ns_per_update = std.time.ns_per_s / SIMULATION_UPS;
 
     var platform = SdlPlatform{};
-    try platform.init(gpa_allocator, "Handmade Pool", WINDOW_WIDTH, WINDOW_HEIGHT);
+    try platform.init("Handmade Pool", WINDOW_WIDTH, WINDOW_HEIGHT);
     defer platform.deinit();
 
     resizeCallback(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -186,7 +185,7 @@ pub fn coreLoop(
         _ = try SDL.GameController.open(0);
     }
 
-    var application_audio_buffer = try ApplicationAudioBuffer.init(gpa_allocator);
+    var application_audio_buffer = try ApplicationAudioBuffer.init();
     defer application_audio_buffer.deinit();
 
     var raw_event: SDL.c.SDL_Event = undefined;
@@ -233,7 +232,7 @@ pub fn coreLoop(
                         .resized => |resize_event| {
                             const width = @intCast(u32, resize_event.width);
                             const height = @intCast(u32, resize_event.height);
-                            try platform.resize(gpa_allocator, width, height);
+                            try platform.resize(width, height);
                             resizeCallback(width, height);
                         },
                         else => {},
@@ -256,7 +255,7 @@ pub fn coreLoop(
 
         imguiText("FPS: {d:.2}", .{fps});
 
-        renderCallback(&platform.screen_buffer);
+        renderCallback(platform.screen_buffer, Global.screen_width, Global.screen_height);
         platform.render();
 
         // update FPS twice per second
@@ -316,7 +315,7 @@ pub const InputState = struct {
 pub const SdlPlatform = struct {
     window: SDL.Window = undefined,
     imgui_context: [*c]c.ImGuiContext = undefined,
-    screen_buffer: ScreenBuffer = undefined,
+    screen_buffer: []u32 = undefined,
 
     // OpenGL stuff necessary to draw a full-screen quad
     gl_context: SDL.gl.Context = undefined,
@@ -332,7 +331,7 @@ pub const SdlPlatform = struct {
     const vertices = [_]f32{
         // 3 vertex coordinates, 2 texture coordinates
         // The texture coordinate y-components are inverted to account for the
-        // different y-axis directions between ScreenBuffer and OpenGL.
+        // different y-axis directions between screen buffer and OpenGL.
         1.0, 1.0, 0.0, 1.0, 0.0, // top right vertex
         1.0, -1.0, 0.0, 1.0, 1.0, // bottom right vertex
         -1.0, -1.0, 0.0, 0.0, 1.0, // bottom left vertex
@@ -345,7 +344,6 @@ pub const SdlPlatform = struct {
 
     pub fn init(
         self: *SdlPlatform,
-        allocator: Allocator,
         window_name: [:0]const u8,
         comptime width: comptime_int,
         comptime height: comptime_int,
@@ -388,10 +386,12 @@ pub const SdlPlatform = struct {
         if (!c.ImGui_ImplOpenGL3_Init(glsl_version)) return error.ImGuiOpenGL3InitFailed;
 
         self.initOpenGLObjects();
-        try self.createScreenBufferAndTexture(allocator, width, height);
+        Global.screen_width = width;
+        Global.screen_height = height;
+        try self.createScreenBufferAndTexture();
         c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
-        self.audio_buffer = try SdlAudioRingBuffer.init(gpa_allocator);
+        self.audio_buffer = try SdlAudioRingBuffer.init();
         self.audio_device = try initSdlAudioDevice(&self.audio_buffer);
         self.audio_device.pause(false);
     }
@@ -401,7 +401,7 @@ pub const SdlPlatform = struct {
         self.audio_buffer.deinit();
 
         self.deinitOpenGLObjects();
-        self.screen_buffer.deinit();
+        gpa_allocator.free(self.screen_buffer);
         c.ImGui_ImplOpenGL3_Shutdown();
         c.ImGui_ImplSDL2_Shutdown();
         c.igDestroyContext(self.imgui_context);
@@ -411,10 +411,12 @@ pub const SdlPlatform = struct {
         SDL.quit();
     }
 
-    pub fn resize(self: *SdlPlatform, allocator: Allocator, width: u32, height: u32) !void {
+    pub fn resize(self: *SdlPlatform, width: u32, height: u32) !void {
         c.glDeleteTextures(1, &self.texture);
-        self.screen_buffer.deinit();
-        try self.createScreenBufferAndTexture(allocator, width, height);
+        gpa_allocator.free(self.screen_buffer);
+        Global.screen_width = width;
+        Global.screen_height = height;
+        try self.createScreenBufferAndTexture();
         c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
     }
 
@@ -430,7 +432,7 @@ pub const SdlPlatform = struct {
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
         self.blitScreenBuffer();
-        self.screen_buffer.clear(MAGENTA);
+        self.clearScreenBuffer(MAGENTA);
 
         c.glUseProgram(self.shader_program);
         c.glBindVertexArray(self.vao);
@@ -536,9 +538,10 @@ pub const SdlPlatform = struct {
         c.glDeleteVertexArrays(1, &self.vao);
     }
 
-    fn createScreenBufferAndTexture(self: *SdlPlatform, allocator: Allocator, width: u32, height: u32) !void {
-        self.screen_buffer = try ScreenBuffer.init(allocator, width, height);
-        self.screen_buffer.clear(MAGENTA);
+    fn createScreenBufferAndTexture(self: *SdlPlatform) !void {
+        const num_pixels = Global.screen_width * Global.screen_height;
+        self.screen_buffer = try gpa_allocator.alloc(u32, num_pixels);
+        self.clearScreenBuffer(MAGENTA);
 
         c.glGenTextures(1, &self.texture);
         c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
@@ -550,6 +553,12 @@ pub const SdlPlatform = struct {
         self.blitScreenBuffer();
     }
 
+    pub fn clearScreenBuffer(self: *SdlPlatform, color: u32) void {
+        for (self.screen_buffer) |*pixel| {
+            pixel.* = color;
+        }
+    }
+
     fn blitScreenBuffer(self: *SdlPlatform) void {
         c.glActiveTexture(c.GL_TEXTURE0);
         c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
@@ -558,8 +567,8 @@ pub const SdlPlatform = struct {
             c.GL_TEXTURE_2D,
             0,
             c.GL_RGB,
-            @intCast(c_int, self.screen_buffer.width),
-            @intCast(c_int, self.screen_buffer.height),
+            @intCast(c_int, Global.screen_width),
+            @intCast(c_int, Global.screen_height),
             0,
             c.GL_RGBA,
             // Had problems with endianness of the color bytes.
@@ -567,7 +576,7 @@ pub const SdlPlatform = struct {
             // I don't have a deep understanding of what's going on here, but that's OK.
             // This code needs to be just good enough to transfer screen buffer to the quad.
             c.GL_UNSIGNED_INT_8_8_8_8,
-            self.screen_buffer.pixels.ptr,
+            self.screen_buffer.ptr,
         );
     }
 

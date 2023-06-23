@@ -43,7 +43,13 @@ fn update(step: f64) void {
     // p.* = geometry.scalePoint(p0, PersistGlobal.scale);
 }
 
-fn render(buffer: *ScreenBuffer) void {
+fn render(pixels: []u32, width: u32, height: u32) void {
+    var buffer = ScreenBuffer{
+        .width = width,
+        .height = height,
+        .pixels = pixels,
+        .allocator = undefined,
+    };
     buffer.clear(0x000000FF);
     const green = 0x00F000FF;
     const red = 0xFF0000FF;
@@ -51,7 +57,7 @@ fn render(buffer: *ScreenBuffer) void {
     _ = green;
     _ = yellow;
 
-    polygon.draw(buffer, red);
+    polygon.draw(&buffer, red);
 
     _ = platform.c.igSliderFloat("scale", &PersistGlobal.scale, 0, 10, "%.02f", 0);
     platform.imguiText("Area: {d:.2}", .{polygon.area2()});
