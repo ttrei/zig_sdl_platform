@@ -3,12 +3,12 @@
     .version = "0.0.0",
     .dependencies = .{
         .sdl = .{
-            .url = "https://github.com/MasterQ32/SDL.zig/archive/a3ed6e9.tar.gz",
-            .hash = "1220581e659491f9fc2ffc9551c6aa0a5bb0dabca182c80fa65e38ed5f9c8b86d6b3",
+            .url = "https://github.com/MasterQ32/SDL.zig/archive/4d565b5.tar.gz",
+            .hash = "12207a505b89fce2301fa4a5ded9ba26ea10f44928a3c0c2043b9f9d8c8e16d12a40",
         },
-        .handmade_gl = .{
-            .url = "https://github.com/ttrei/handmade_gl/archive/4307bba.tar.gz",
-            .hash = "1220155145cd694aa1baf2a424743faa05da725dcbe30f302135397af61382d2c4d6",
-        },
+        // .handmade_gl = .{
+        //     .url = "https://github.com/ttrei/handmade_gl/archive/b0815db.tar.gz",
+        //     .hash = "12209156d6dd728ca441768a08b094a15dbf826fd6f53a8e72d462615700f8f6f628",
+        // },
     },
 }

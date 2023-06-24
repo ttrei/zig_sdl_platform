@@ -6,32 +6,88 @@ const ApplicationAudioBuffer = platform.ApplicationAudioBuffer;
 const AudioSettings = platform.AudioSettings;
 
 const gl = @import("handmade_gl");
-const ScreenBuffer = gl.screen.ScreenBuffer;
+const Pixel = gl.screen.Pixel;
+const ScreenCoordinate = gl.screen.ScreenCoordinate;
+const PixelBuffer = gl.screen.PixelBuffer;
 const geometry = gl.geometry;
 const Polygon = geometry.Polygon;
-const Point = geometry.Point;
+const Rectangle = geometry.Rectangle;
+const Circle = geometry.Circle;
+const PointInt = geometry.PointInt;
 
-var polygon: Polygon = undefined;
+pub const CoordinateTransform = gl.geometry.CoordinateTransform;
 
 const TONE_A = 440.0;
 const TONE_B = 440.0 * 3 / 4;
 
+const red = 0xFF0000FF;
+const green = 0x00FF00FF;
+const blue = 0x0000FFFF;
+const yellow = 0xFFFF00FF;
+
 const PersistGlobal = struct {
     var show_demo_window: bool = false;
-    var scale: f32 = 1;
+    var scale: f32 = 1.0;
     var tone_a: f64 = TONE_A;
     var tone_b: f64 = TONE_B;
     var tone_vol: f32 = 2000.0;
+
+    var buffer: PixelBuffer = undefined;
+    var scene: Scene = undefined;
+    var viewport: ViewPort = undefined;
+    var viewport_pos = Pixel{ .x = 50, .y = 50 };
 };
 
-const p0 = Point{ .x = 100, .y = 100 };
+const ViewPort = struct {
+    // Transforms from scene coordinates to viewport coordinates
+    camera_transform: CoordinateTransform,
+    buffer: PixelBuffer,
+};
+
+const Scene = struct {
+    objects: std.ArrayList(*Polygon) = undefined,
+    rectangle: ?Rectangle = null,
+    circle: ?Circle = null,
+    allocator: std.mem.Allocator = undefined,
+
+    const Self = @This();
+
+    pub fn init() Self {
+        return Self{ .objects = std.ArrayList(*Polygon).init(std.heap.page_allocator) };
+    }
+    pub fn deinit(self: *Self) void {
+        for (self.objects.items) |o| {
+            o.deinit();
+        }
+        self.objects.deinit();
+    }
+
+    pub fn addObject(self: *Self) !void {
+        var poly = try std.heap.page_allocator.create(Polygon);
+        poly.* = Polygon.init();
+        try self.objects.append(poly);
+    }
+
+    pub fn draw(self: *const Self, viewport: *ViewPort) void {
+        for (self.objects.items) |o| {
+            o.draw(&viewport.buffer, green, &viewport.camera_transform);
+        }
+        if (self.rectangle != null) {
+            self.rectangle.?.draw(&viewport.buffer, red, &viewport.camera_transform);
+        }
+        if (self.circle != null) {
+            self.circle.?.draw(&viewport.buffer, yellow, &viewport.camera_transform);
+        }
+    }
+};
 
 pub fn main() !void {
-    polygon = Polygon.init();
-    defer polygon.deinit();
-    try polygon.add_vertex(p0);
-    // try polygon.add_vertex(Point{ .x = 200, .y = 100 });
-    // try polygon.add_vertex(Point{ .x = 300, .y = 300 });
+    PersistGlobal.scene = Scene.init();
+    defer PersistGlobal.scene.deinit();
+
+    try PersistGlobal.scene.addObject();
+    PersistGlobal.scene.rectangle = Rectangle{ .p1 = .{ .x = 30, .y = 30 }, .p2 = .{ .x = 200, .y = 300 } };
+    PersistGlobal.scene.circle = Circle{ .c = .{ .x = 70, .y = 150 }, .r = 60 };
 
     try platform.coreLoop(update, render, resize, processInput, writeAudio);
 }
@@ -39,46 +95,87 @@ pub fn main() !void {
 fn update(step: f64) void {
     _ = step;
 
-    // const p = &polygon.first.p;
-    // p.* = geometry.scalePoint(p0, PersistGlobal.scale);
+    PersistGlobal.viewport.camera_transform.scale = PersistGlobal.scale;
+
+    const poly = PersistGlobal.scene.objects.getLast();
+    if (poly.n > 0) {
+        const p = &poly.first.p;
+        _ = p;
+    }
 }
 
-fn render(pixels: []u32, width: u32, height: u32) void {
-    var buffer = ScreenBuffer{
-        .width = width,
-        .height = height,
-        .pixels = pixels,
-        .allocator = undefined,
-    };
-    buffer.clear(0x000000FF);
-    const green = 0x00F000FF;
-    const red = 0xFF0000FF;
-    const yellow = 0xFFFF0FFF;
-    _ = green;
-    _ = yellow;
+fn render() void {
+    PersistGlobal.buffer.clear(0xFFFFFFFF);
+    PersistGlobal.viewport.buffer.clear(0x000000FF);
 
-    polygon.draw(&buffer, red);
+    PersistGlobal.scene.draw(&PersistGlobal.viewport);
 
-    _ = platform.c.igSliderFloat("scale", &PersistGlobal.scale, 0, 10, "%.02f", 0);
-    platform.imguiText("Area: {d:.2}", .{polygon.area2()});
+    _ = platform.c.igSliderFloat("scale", &PersistGlobal.scale, 0.5, 1.5, "%.02f", 0);
+    // platform.imguiText("Area: {d:.2}", .{poly.area2()});
     platform.imguiText("A: {d:.2} Hz", .{PersistGlobal.tone_a});
     platform.imguiText("B: {d:.2} Hz", .{PersistGlobal.tone_b});
 
     if (PersistGlobal.show_demo_window) platform.c.igShowDemoWindow(&PersistGlobal.show_demo_window);
 }
 
-fn resize(width: u32, height: u32) void {
-    _ = width;
-    _ = height;
+fn updateViewPort() void {
+    const viewport_width = PersistGlobal.buffer.width * 8 / 10;
+    const viewport_height = PersistGlobal.buffer.height * 8 / 10;
+    if (PersistGlobal.viewport_pos.x + viewport_width > PersistGlobal.buffer.width) {
+        PersistGlobal.viewport_pos.x = PersistGlobal.buffer.width - viewport_width;
+    }
+    if (PersistGlobal.viewport_pos.y + viewport_height > PersistGlobal.buffer.height) {
+        PersistGlobal.viewport_pos.y = PersistGlobal.buffer.height - viewport_height;
+    }
+    PersistGlobal.viewport = ViewPort{
+        .camera_transform = CoordinateTransform{
+            .translate_x = 50.0,
+            .translate_y = -20.0,
+            .scale = 1.5,
+        },
+        .buffer = PersistGlobal.buffer.subBuffer(
+            viewport_width,
+            viewport_height,
+            PersistGlobal.viewport_pos,
+        ) catch unreachable,
+    };
+}
+
+fn resize(pixels: []u32, width: ScreenCoordinate, height: ScreenCoordinate) void {
+    PersistGlobal.buffer = PixelBuffer.init(pixels, width, height) catch unreachable;
+    updateViewPort();
 }
 
 fn processInput(input: *const InputState) void {
-    if (input.mouse_left_down) {
-        polygon.add_vertex(Point{ .x = input.mouse_x, .y = input.mouse_y }) catch unreachable;
+    if (input.key_space_down) {
+        PersistGlobal.viewport_pos.x += 5;
+        PersistGlobal.viewport_pos.y += 5;
+        updateViewPort();
     }
-    polygon.first.prev.p = Point{ .x = input.mouse_x, .y = input.mouse_y };
-    const factor_a = (@floatFromInt(f64, input.controller_left_y) + 32768) / 32768;
-    const factor_b = (@floatFromInt(f64, input.controller_right_y) + 32768) / 32768;
+    if (input.mouse_right_down) {
+        PersistGlobal.scene.addObject() catch unreachable;
+    }
+    const poly = PersistGlobal.scene.objects.getLast();
+    const pointer = PointInt{
+        .x = input.mouse_x,
+        .y = input.mouse_y,
+    };
+    const pointer_scene = PersistGlobal.viewport.camera_transform.reverseInt(
+        &pointer.sub(&PointInt.fromPixel(&PersistGlobal.viewport_pos)),
+    );
+    if (input.mouse_left_down) {
+        if (poly.n == 0) {
+            poly.add_vertex(pointer_scene) catch unreachable;
+        }
+        poly.add_vertex(pointer_scene) catch unreachable;
+    }
+    if (poly.n > 0) {
+        poly.first.prev.p.x = pointer_scene.x;
+        poly.first.prev.p.y = pointer_scene.y;
+    }
+
+    const factor_a = (@as(f64, @floatFromInt(input.controller_left_y)) + 32768) / 32768;
+    const factor_b = (@as(f64, @floatFromInt(input.controller_right_y)) + 32768) / 32768;
     PersistGlobal.tone_a = TONE_A * factor_a;
     PersistGlobal.tone_b = TONE_B * factor_b;
     // std.debug.print("{d}\t{d}\n", .{ input.controller_left_x, input.controller_left_y });
@@ -90,8 +187,8 @@ fn writeAudio(buffer: *ApplicationAudioBuffer) void {
         var phase_b: f64 = 0.0;
     };
 
-    const period_a = @floatFromInt(f32, AudioSettings.sample_rate) / PersistGlobal.tone_a;
-    const period_b = @floatFromInt(f32, AudioSettings.sample_rate) / PersistGlobal.tone_b;
+    const period_a = @as(f32, @floatFromInt(AudioSettings.sample_rate)) / PersistGlobal.tone_a;
+    const period_b = @as(f32, @floatFromInt(AudioSettings.sample_rate)) / PersistGlobal.tone_b;
     const two_pi = 2 * std.math.pi;
 
     const frame_count = buffer.sample_count / AudioSettings.channel_count;
@@ -100,7 +197,7 @@ fn writeAudio(buffer: *ApplicationAudioBuffer) void {
     while (i < frame_count) {
         const amplitude_a = std.math.sin(Persist.phase_a) * PersistGlobal.tone_vol;
         const amplitude_b = std.math.sin(Persist.phase_b) * PersistGlobal.tone_vol;
-        const sample_value = @intFromFloat(i16, amplitude_a + amplitude_b);
+        const sample_value = @as(i16, @intFromFloat(amplitude_a + amplitude_b));
         var j: u8 = 0;
         while (j < AudioSettings.channel_count) {
             buffer.samples[AudioSettings.channel_count * i + j] = sample_value;

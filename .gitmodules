@@ -1,0 +1,3 @@
+[submodule "vendor/handmade_gl"]
+	path = vendor/handmade_gl
+	url = git@github.com:ttrei/handmade_gl.git
