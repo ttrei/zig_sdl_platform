@@ -169,6 +169,11 @@ fn processInput(input: *const InputState) void {
         }
         poly.add_vertex(pointer_scene) catch unreachable;
     }
+    if (input.mouse_middle_down) {
+        if (PersistGlobal.scene.circle != null) {
+            PersistGlobal.scene.circle.?.c = pointer_scene;
+        }
+    }
     if (poly.n > 0) {
         poly.first.prev.p.x = pointer_scene.x;
         poly.first.prev.p.y = pointer_scene.y;

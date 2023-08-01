@@ -213,6 +213,7 @@ pub fn coreLoop(
                     switch (ev.button) {
                         .left => input.mouse_left_down = true,
                         .right => input.mouse_right_down = true,
+                        .middle => input.mouse_middle_down = true,
                         else => {},
                     }
                 },
@@ -291,6 +292,7 @@ pub const InputState = struct {
 
     mouse_left_down: bool = false,
     mouse_right_down: bool = false,
+    mouse_middle_down: bool = false,
 
     controller_left_x: i16 = 0,
     controller_left_y: i16 = 0,
@@ -305,6 +307,7 @@ pub const InputState = struct {
         self.mouse_dy = 0;
         self.mouse_left_down = false;
         self.mouse_right_down = false;
+        self.mouse_middle_down = false;
         self.key_space_down = false;
         self.key_s_down = false;
     }
