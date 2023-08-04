@@ -1,5 +1,6 @@
 const std = @import("std");
 const Build = std.Build;
+const LazyPath = Build.LazyPath;
 const FileSource = Build.FileSource;
 const LibExeObjStep = Build.LibExeObjStep;
 const SdlSdk = @import("sdl");
@@ -7,20 +8,6 @@ const SdlSdk = @import("sdl");
 const Platform = @This();
 build: *Build,
 sdl_sdk: *SdlSdk,
-
-// Given a path relative to this repository root, return the respective absolute path.
-// This is a way to get access to the vendored cimgui headers from application code.
-// TODO: Delete this hack when following issue is solved:
-// https://github.com/ziglang/zig/issues/14719
-// There's a pull request:
-// https://github.com/ziglang/zig/pull/14731
-fn sdkPath(comptime path: []const u8) []const u8 {
-    if (path[0] == '/') @compileError("sdkPath requires a relative path!");
-    return comptime blk: {
-        const root_dir = std.fs.path.dirname(@src().file) orelse ".";
-        break :blk root_dir ++ "/" ++ path;
-    };
-}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -80,24 +67,24 @@ pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
 
     const cimgui_sdl2_opengl3_obj = b.addObject(.{
         .name = "cimgui_sdl2_opengl3_obj",
-        .root_source_file = FileSource{ .path = sdkPath("vendor/cimgui/cimgui.cpp") },
+        .root_source_file = LazyPath.relative("vendor/cimgui/cimgui.cpp"),
         .target = exe.target,
         .optimize = exe.optimize,
     });
     // https://github.com/cimgui/cimgui/blob/261250f88f374e751b2de1501ba5c0c11e420b5a/backend_test/CMakeLists.txt#L39
     cimgui_sdl2_opengl3_obj.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    cimgui_sdl2_opengl3_obj.addIncludePath(sdkPath("vendor/cimgui"));
-    cimgui_sdl2_opengl3_obj.addIncludePath(sdkPath("vendor/cimgui/generator/output"));
-    cimgui_sdl2_opengl3_obj.addIncludePath(sdkPath("vendor/cimgui/imgui"));
-    cimgui_sdl2_opengl3_obj.addIncludePath(sdkPath("vendor/cimgui/imgui/backends"));
+    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui"));
+    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui/generator/output"));
+    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui/imgui"));
+    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui/imgui/backends"));
     cimgui_sdl2_opengl3_obj.addCSourceFiles(&.{
-        sdkPath("vendor/cimgui/imgui/imgui.cpp"),
-        sdkPath("vendor/cimgui/imgui/imgui_demo.cpp"),
-        sdkPath("vendor/cimgui/imgui/imgui_draw.cpp"),
-        sdkPath("vendor/cimgui/imgui/imgui_tables.cpp"),
-        sdkPath("vendor/cimgui/imgui/imgui_widgets.cpp"),
-        sdkPath("vendor/cimgui/imgui/backends/imgui_impl_sdl2.cpp"),
-        sdkPath("vendor/cimgui/imgui/backends/imgui_impl_opengl3.cpp"),
+        "vendor/cimgui/imgui/imgui.cpp",
+        "vendor/cimgui/imgui/imgui_demo.cpp",
+        "vendor/cimgui/imgui/imgui_draw.cpp",
+        "vendor/cimgui/imgui/imgui_tables.cpp",
+        "vendor/cimgui/imgui/imgui_widgets.cpp",
+        "vendor/cimgui/imgui/backends/imgui_impl_sdl2.cpp",
+        "vendor/cimgui/imgui/backends/imgui_impl_opengl3.cpp",
     }, &.{});
     cimgui_sdl2_opengl3_obj.linkLibC();
     cimgui_sdl2_opengl3_obj.linkLibCpp();
@@ -105,7 +92,7 @@ pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
     sdk.sdl_sdk.link(cimgui_sdl2_opengl3_obj, .static);
 
     exe.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    exe.addIncludePath(sdkPath("vendor/cimgui"));
-    exe.addIncludePath(sdkPath("vendor/cimgui/generator/output"));
+    exe.addIncludePath(LazyPath.relative("vendor/cimgui"));
+    exe.addIncludePath(LazyPath.relative("vendor/cimgui/generator/output"));
     exe.addObject(cimgui_sdl2_opengl3_obj);
 }
