@@ -1,7 +1,5 @@
 const std = @import("std");
 const Build = std.Build;
-const LazyPath = Build.LazyPath;
-const FileSource = Build.FileSource;
 const LibExeObjStep = Build.LibExeObjStep;
 const SdlSdk = @import("sdl");
 
@@ -25,7 +23,7 @@ pub fn build(b: *std.Build) void {
     const sdk = Platform.init(b);
 
     var platform_module = b.addModule("platform", .{
-        .source_file = FileSource.relative("src/sdl_platform.zig"),
+        .source_file = .{ .path = "src/sdl_platform.zig" },
         .dependencies = &.{
             .{ .name = "sdl2", .module = sdk.sdl_sdk.getWrapperModule() },
         },
@@ -33,7 +31,7 @@ pub fn build(b: *std.Build) void {
 
     const example_exe = b.addExecutable(.{
         .name = "example",
-        .root_source_file = FileSource.relative("src/example.zig"),
+        .root_source_file = .{ .path = "src/example.zig" },
         .target = target,
         .optimize = optimize,
     });
@@ -67,16 +65,16 @@ pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
 
     const cimgui_sdl2_opengl3_obj = b.addObject(.{
         .name = "cimgui_sdl2_opengl3_obj",
-        .root_source_file = LazyPath.relative("vendor/cimgui/cimgui.cpp"),
+        .root_source_file = .{ .path = "vendor/cimgui/cimgui.cpp" },
         .target = exe.target,
         .optimize = exe.optimize,
     });
     // https://github.com/cimgui/cimgui/blob/261250f88f374e751b2de1501ba5c0c11e420b5a/backend_test/CMakeLists.txt#L39
     cimgui_sdl2_opengl3_obj.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui"));
-    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui/generator/output"));
-    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui/imgui"));
-    cimgui_sdl2_opengl3_obj.addIncludePath(LazyPath.relative("vendor/cimgui/imgui/backends"));
+    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui" });
+    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui/generator/output" });
+    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui/imgui" });
+    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui/imgui/backends" });
     cimgui_sdl2_opengl3_obj.addCSourceFiles(&.{
         "vendor/cimgui/imgui/imgui.cpp",
         "vendor/cimgui/imgui/imgui_demo.cpp",
@@ -92,7 +90,7 @@ pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
     sdk.sdl_sdk.link(cimgui_sdl2_opengl3_obj, .static);
 
     exe.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    exe.addIncludePath(LazyPath.relative("vendor/cimgui"));
-    exe.addIncludePath(LazyPath.relative("vendor/cimgui/generator/output"));
+    exe.addIncludePath(.{ .path = "vendor/cimgui" });
+    exe.addIncludePath(.{ .path = "vendor/cimgui/generator/output" });
     exe.addObject(cimgui_sdl2_opengl3_obj);
 }
