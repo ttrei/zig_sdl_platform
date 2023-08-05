@@ -53,10 +53,7 @@ pub fn build(b: *std.Build) void {
 
 pub fn init(b: *Build) *Platform {
     const sdk = b.allocator.create(Platform) catch @panic("out of memory");
-    sdk.* = .{
-        .build = b,
-        .sdl_sdk = SdlSdk.init(b, null),
-    };
+    sdk.* = .{ .build = b, .sdl_sdk = SdlSdk.init(b, null) };
     return sdk;
 }
 
