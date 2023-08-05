@@ -13,6 +13,7 @@ const geometry = gl.geometry;
 const Polygon = geometry.Polygon;
 const Rectangle = geometry.Rectangle;
 const Circle = geometry.Circle;
+const Shape = geometry.Shape;
 const PointInt = geometry.PointInt;
 
 pub const CoordinateTransform = gl.geometry.CoordinateTransform;
@@ -45,38 +46,40 @@ const ViewPort = struct {
 };
 
 const Scene = struct {
-    objects: std.ArrayList(*Polygon) = undefined,
+    objects: std.ArrayList(*Shape) = undefined,
     rectangle: ?Rectangle = null,
-    circle: ?Circle = null,
-    allocator: std.mem.Allocator = undefined,
+    obj: ?Shape = null,
+    arena: std.heap.ArenaAllocator = undefined,
 
     const Self = @This();
 
     pub fn init() Self {
-        return Self{ .objects = std.ArrayList(*Polygon).init(std.heap.page_allocator) };
+        return Self{
+            .arena = std.heap.ArenaAllocator.init(std.heap.page_allocator),
+            // .objects = std.ArrayList(*Shape).init(arena.allocator()),
+            .objects = std.ArrayList(*Shape).init(std.heap.page_allocator),
+        };
     }
     pub fn deinit(self: *Self) void {
-        for (self.objects.items) |o| {
-            o.deinit();
-        }
         self.objects.deinit();
+        self.arena.deinit();
     }
 
-    pub fn addObject(self: *Self) !void {
-        var poly = try std.heap.page_allocator.create(Polygon);
-        poly.* = Polygon.init();
-        try self.objects.append(poly);
+    pub fn addPolygon(self: *Self) !void {
+        var shape = try self.arena.allocator().create(Shape);
+        shape.* = .{ .polygon = Polygon.init(self.arena.allocator()) };
+        try self.objects.append(shape);
     }
 
     pub fn draw(self: *const Self, viewport: *ViewPort) void {
         for (self.objects.items) |o| {
-            o.draw(&viewport.buffer, green, &viewport.camera_transform);
+            o.polygon.draw(&viewport.buffer, green, &viewport.camera_transform);
         }
         if (self.rectangle != null) {
             self.rectangle.?.draw(&viewport.buffer, red, &viewport.camera_transform);
         }
-        if (self.circle != null) {
-            self.circle.?.draw(&viewport.buffer, yellow, &viewport.camera_transform);
+        if (self.obj != null) {
+            self.obj.?.circle.draw(&viewport.buffer, yellow, &viewport.camera_transform);
         }
     }
 };
@@ -85,9 +88,11 @@ pub fn main() !void {
     PersistGlobal.scene = Scene.init();
     defer PersistGlobal.scene.deinit();
 
-    try PersistGlobal.scene.addObject();
+    try PersistGlobal.scene.addPolygon();
     PersistGlobal.scene.rectangle = Rectangle{ .p1 = .{ .x = 30, .y = 30 }, .p2 = .{ .x = 200, .y = 300 } };
-    PersistGlobal.scene.circle = Circle{ .c = .{ .x = 70, .y = 150 }, .r = 60 };
+    PersistGlobal.scene.obj = Shape{
+        .circle = Circle{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
+    };
 
     try platform.coreLoop(update, render, resize, processInput, writeAudio);
 }
@@ -97,7 +102,7 @@ fn update(step: f64) void {
 
     PersistGlobal.viewport.camera_transform.scale = PersistGlobal.scale;
 
-    const poly = PersistGlobal.scene.objects.getLast();
+    const poly = PersistGlobal.scene.objects.getLast().polygon;
     if (poly.n > 0) {
         const p = &poly.first.p;
         _ = p;
@@ -153,9 +158,9 @@ fn processInput(input: *const InputState) void {
         updateViewPort();
     }
     if (input.mouse_right_down) {
-        PersistGlobal.scene.addObject() catch unreachable;
+        PersistGlobal.scene.addPolygon() catch unreachable;
     }
-    const poly = PersistGlobal.scene.objects.getLast();
+    var poly = &PersistGlobal.scene.objects.getLast().polygon;
     const pointer = PointInt{
         .x = input.mouse_x,
         .y = input.mouse_y,
@@ -170,8 +175,8 @@ fn processInput(input: *const InputState) void {
         poly.add_vertex(pointer_scene) catch unreachable;
     }
     if (input.mouse_middle_down) {
-        if (PersistGlobal.scene.circle != null) {
-            PersistGlobal.scene.circle.?.c = pointer_scene;
+        if (PersistGlobal.scene.obj != null) {
+            PersistGlobal.scene.obj.?.circle.c = pointer_scene;
         }
     }
     if (poly.n > 0) {
