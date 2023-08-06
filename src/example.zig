@@ -48,8 +48,8 @@ const ViewPort = struct {
 const Scene = struct {
     objects: std.ArrayList(*Shape) = undefined,
     current_polygon: *Polygon = undefined,
-    rectangle: ?Rectangle = null,
-    obj: ?Shape = null,
+    rectangle: *Rectangle = undefined,
+    circle: *Circle = undefined,
     arena: std.heap.ArenaAllocator = undefined,
 
     const Self = @This();
@@ -73,15 +73,23 @@ const Scene = struct {
         return &shape.polygon;
     }
 
+    pub fn addRectangle(self: *Self, rectangle: *const Rectangle) !*Rectangle {
+        var shape = try self.arena.allocator().create(Shape);
+        shape.* = .{ .rectangle = rectangle.* };
+        try self.objects.append(shape);
+        return &shape.rectangle;
+    }
+
+    pub fn addCircle(self: *Self, circle: *const Circle) !*Circle {
+        var shape = try self.arena.allocator().create(Shape);
+        shape.* = .{ .circle = circle.* };
+        try self.objects.append(shape);
+        return &shape.circle;
+    }
+
     pub fn draw(self: *const Self, viewport: *ViewPort) void {
         for (self.objects.items) |o| {
-            o.polygon.draw(&viewport.buffer, green, &viewport.camera_transform);
-        }
-        if (self.rectangle != null) {
-            self.rectangle.?.draw(&viewport.buffer, red, &viewport.camera_transform);
-        }
-        if (self.obj != null) {
-            self.obj.?.circle.draw(&viewport.buffer, yellow, &viewport.camera_transform);
+            o.draw(&viewport.buffer, green, &viewport.camera_transform);
         }
     }
 };
@@ -91,10 +99,12 @@ pub fn main() !void {
     defer PersistGlobal.scene.deinit();
 
     PersistGlobal.scene.current_polygon = try PersistGlobal.scene.addPolygon();
-    PersistGlobal.scene.rectangle = Rectangle{ .p1 = .{ .x = 30, .y = 30 }, .p2 = .{ .x = 200, .y = 300 } };
-    PersistGlobal.scene.obj = Shape{
-        .circle = Circle{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
-    };
+    PersistGlobal.scene.rectangle = try PersistGlobal.scene.addRectangle(
+        &.{ .p1 = .{ .x = 30, .y = 30 }, .p2 = .{ .x = 200, .y = 300 } },
+    );
+    PersistGlobal.scene.circle = try PersistGlobal.scene.addCircle(
+        &.{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
+    );
 
     try platform.coreLoop(update, render, resize, processInput, writeAudio);
 }
@@ -103,12 +113,6 @@ fn update(step: f64) void {
     _ = step;
 
     PersistGlobal.viewport.camera_transform.scale = PersistGlobal.scale;
-
-    // const poly = PersistGlobal.scene.objects.getLast().polygon;
-    // if (poly.n > 0) {
-    //     const p = &poly.first.p;
-    //     _ = p;
-    // }
 }
 
 fn render() void {
@@ -177,9 +181,7 @@ fn processInput(input: *const InputState) void {
         poly.add_vertex(pointer_scene) catch unreachable;
     }
     if (input.mouse_middle_down) {
-        if (PersistGlobal.scene.obj != null) {
-            PersistGlobal.scene.obj.?.circle.c = pointer_scene;
-        }
+        PersistGlobal.scene.circle.c = pointer_scene;
     }
     if (poly.n > 0) {
         poly.first.prev.p.x = pointer_scene.x;
