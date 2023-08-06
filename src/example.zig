@@ -47,6 +47,7 @@ const ViewPort = struct {
 
 const Scene = struct {
     objects: std.ArrayList(*Shape) = undefined,
+    current_polygon: *Polygon = undefined,
     rectangle: ?Rectangle = null,
     obj: ?Shape = null,
     arena: std.heap.ArenaAllocator = undefined,
@@ -65,10 +66,11 @@ const Scene = struct {
         self.arena.deinit();
     }
 
-    pub fn addPolygon(self: *Self) !void {
+    pub fn addPolygon(self: *Self) !*Polygon {
         var shape = try self.arena.allocator().create(Shape);
         shape.* = .{ .polygon = Polygon.init(self.arena.allocator()) };
         try self.objects.append(shape);
+        return &shape.polygon;
     }
 
     pub fn draw(self: *const Self, viewport: *ViewPort) void {
@@ -88,7 +90,7 @@ pub fn main() !void {
     PersistGlobal.scene = Scene.init();
     defer PersistGlobal.scene.deinit();
 
-    try PersistGlobal.scene.addPolygon();
+    PersistGlobal.scene.current_polygon = try PersistGlobal.scene.addPolygon();
     PersistGlobal.scene.rectangle = Rectangle{ .p1 = .{ .x = 30, .y = 30 }, .p2 = .{ .x = 200, .y = 300 } };
     PersistGlobal.scene.obj = Shape{
         .circle = Circle{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
@@ -102,11 +104,11 @@ fn update(step: f64) void {
 
     PersistGlobal.viewport.camera_transform.scale = PersistGlobal.scale;
 
-    const poly = PersistGlobal.scene.objects.getLast().polygon;
-    if (poly.n > 0) {
-        const p = &poly.first.p;
-        _ = p;
-    }
+    // const poly = PersistGlobal.scene.objects.getLast().polygon;
+    // if (poly.n > 0) {
+    //     const p = &poly.first.p;
+    //     _ = p;
+    // }
 }
 
 fn render() void {
@@ -158,9 +160,8 @@ fn processInput(input: *const InputState) void {
         updateViewPort();
     }
     if (input.mouse_right_down) {
-        PersistGlobal.scene.addPolygon() catch unreachable;
+        PersistGlobal.scene.current_polygon = PersistGlobal.scene.addPolygon() catch unreachable;
     }
-    var poly = &PersistGlobal.scene.objects.getLast().polygon;
     const pointer = PointInt{
         .x = input.mouse_x,
         .y = input.mouse_y,
@@ -168,6 +169,7 @@ fn processInput(input: *const InputState) void {
     const pointer_scene = PersistGlobal.viewport.camera_transform.reverseInt(
         &pointer.sub(&PointInt.fromPixel(&PersistGlobal.viewport_pos)),
     );
+    var poly = PersistGlobal.scene.current_polygon;
     if (input.mouse_left_down) {
         if (poly.n == 0) {
             poly.add_vertex(pointer_scene) catch unreachable;
