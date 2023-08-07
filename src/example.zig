@@ -87,9 +87,13 @@ const Scene = struct {
         return &shape.circle;
     }
 
-    pub fn draw(self: *const Self, viewport: *ViewPort) void {
+    pub fn draw(self: *const Self, viewport: *ViewPort) !void {
         for (self.objects.items) |o| {
-            o.draw(&viewport.buffer, green, &viewport.camera_transform);
+            // TODO: create a local arena and reuse it for each item
+            var cloned = try o.clone(std.heap.page_allocator);
+            cloned.transform(&viewport.camera_transform);
+            cloned.draw(&viewport.buffer, green);
+            cloned.deinit();
         }
     }
 };
@@ -119,7 +123,7 @@ fn render() void {
     PersistGlobal.buffer.clear(0xFFFFFFFF);
     PersistGlobal.viewport.buffer.clear(0x000000FF);
 
-    PersistGlobal.scene.draw(&PersistGlobal.viewport);
+    PersistGlobal.scene.draw(&PersistGlobal.viewport) catch unreachable;
 
     _ = platform.c.igSliderFloat("scale", &PersistGlobal.scale, 0.5, 1.5, "%.02f", 0);
     // platform.imguiText("Area: {d:.2}", .{poly.area2()});
