@@ -9,6 +9,10 @@ https://davidgow.net/handmadepenguin/default.html
 
 === Try to use https://github.com/SpexGuy/Zig-ImGui
 
+=== Check if ezpkg would help in managing my inter-project dependencies
+
+https://github.com/mattnite/ezpkg
+
 == DONE
 
 === Pass controller input to the application
