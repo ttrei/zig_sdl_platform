@@ -1,30 +1,32 @@
 {
-  description = "Zig SDL platform dev env";
-  # inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-  # Have to match the NixOS version until this is fixed:
-  # https://github.com/ziglang/zig/issues/15898
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/23.05";
+  description = "devShell using packages, overlays, etc. from ttrei dotfiles";
+  inputs.ttrei.url = "github:ttrei/dotfiles";
+  # Use a local copy (useful when making changes in dotfiles):
+  # inputs.ttrei.url = "path:/home/reinis/dotfiles";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-  }:
+  outputs = { self, ttrei, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
-    in {
+      pkgs = ttrei.nixpkgs.legacyPackages.${system};
+      mypkgs = ttrei.mypkgs.${system};
+    in rec {
+      # Expose the used packages as flake output, so you can enter their build environment like this:
+      #   nix develop .#zutty
+      # The output must be named "packages" for "nix develop" to recognize it.
+      packages = {
+        # zutty = mypkgs.zutty;
+      };
       devShells.default = pkgs.mkShell {
-        packages = with pkgs; [
-          bashInteractive
-          pkg-config
-          libjpeg
-          libpng
-          libtiff
-          libwebp
-          SDL2.dev
-          SDL2_image
-        ];
+        packages = [
+          pkgs.bashInteractive
+          pkgs.pkg-config
+          pkgs.libjpeg
+          pkgs.libpng
+          pkgs.libtiff
+          pkgs.libwebp
+          pkgs.SDL2.dev
+          pkgs.SDL2_image
+        ] ++ pkgs.lib.attrsets.mapAttrsToList (name: value: value) packages;
       };
     });
 }
