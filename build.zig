@@ -72,7 +72,7 @@ pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
     cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui/generator/output" });
     cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui/imgui" });
     cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = "vendor/cimgui/imgui/backends" });
-    cimgui_sdl2_opengl3_obj.addCSourceFiles(&.{
+    cimgui_sdl2_opengl3_obj.addCSourceFiles(.{ .files = &.{
         "vendor/cimgui/imgui/imgui.cpp",
         "vendor/cimgui/imgui/imgui_demo.cpp",
         "vendor/cimgui/imgui/imgui_draw.cpp",
@@ -80,7 +80,7 @@ pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
         "vendor/cimgui/imgui/imgui_widgets.cpp",
         "vendor/cimgui/imgui/backends/imgui_impl_sdl2.cpp",
         "vendor/cimgui/imgui/backends/imgui_impl_opengl3.cpp",
-    }, &.{});
+    } });
     cimgui_sdl2_opengl3_obj.linkLibC();
     cimgui_sdl2_opengl3_obj.linkLibCpp();
     cimgui_sdl2_opengl3_obj.linkSystemLibrary("gl");

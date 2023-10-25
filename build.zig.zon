@@ -1,10 +1,11 @@
 .{
+    .paths = .{ "src", "vendor" },
     .name = "zig_sdl_platform",
     .version = "0.0.0",
     .dependencies = .{
         .sdl = .{
-            .url = "https://github.com/MasterQ32/SDL.zig/archive/602aeb7.tar.gz",
-            .hash = "122035d5adee502d4e1036919c789f12baf45a37805a3c1903a632d0cd86ec76c6e1",
+            .url = "https://github.com/MasterQ32/SDL.zig/archive/dd46ee.tar.gz",
+            .hash = "12202a0847d24f9c79302fff04e73d65a3342baecf0dfea46ac304eb68109ab6b472",
         },
         // .handmade_gl = .{
         //     .url = "https://github.com/ttrei/handmade_gl/archive/b0815db.tar.gz",
