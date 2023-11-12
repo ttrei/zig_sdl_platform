@@ -17,15 +17,15 @@
         # zutty = mypkgs.zutty;
       };
       devShells.default = pkgs.mkShell {
-        packages = [
-          pkgs.bashInteractive
-          pkgs.pkg-config
-          pkgs.libjpeg
-          pkgs.libpng
-          pkgs.libtiff
-          pkgs.libwebp
-          pkgs.SDL2.dev
-          pkgs.SDL2_image
+        packages = with pkgs; [
+          bashInteractive
+          pkg-config
+          libjpeg
+          libpng
+          libtiff
+          libwebp
+          SDL2.dev
+          SDL2_image
         ] ++ pkgs.lib.attrsets.mapAttrsToList (name: value: value) packages;
       };
     });
