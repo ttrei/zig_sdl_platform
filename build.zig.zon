@@ -7,9 +7,9 @@
             .url = "https://github.com/MasterQ32/SDL.zig/archive/dd46ee.tar.gz",
             .hash = "12202a0847d24f9c79302fff04e73d65a3342baecf0dfea46ac304eb68109ab6b472",
         },
-        // .handmade_gl = .{
-        //     .url = "https://github.com/ttrei/handmade_gl/archive/b0815db.tar.gz",
-        //     .hash = "12209156d6dd728ca441768a08b094a15dbf826fd6f53a8e72d462615700f8f6f628",
-        // },
+        .handmade_gl = .{
+            .url = "https://github.com/ttrei/handmade_gl/archive/2a1b248.tar.gz",
+            .hash = "12204fd9688f5ea0b2e654ced59fc545edebbd8452737dd825de6429ce300f8a892b",
+        },
     },
 }

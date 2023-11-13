@@ -11,13 +11,13 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const handmade_gl_pkg = b.anonymousDependency(
-        "vendor/handmade_gl",
-        @import("vendor/handmade_gl/build.zig"),
-        .{},
-    );
+    // const handmade_gl_pkg = b.anonymousDependency(
+    //     "vendor/handmade_gl",
+    //     @import("vendor/handmade_gl/build.zig"),
+    //     .{},
+    // );
     // Use this if decide to switch from vendoring to build.zig.zon
-    // const handmade_gl_pkg = b.dependency("handmade_gl", .{});
+    const handmade_gl_pkg = b.dependency("handmade_gl", .{});
     const handmade_gl_module = handmade_gl_pkg.module("handmade_gl");
 
     const sdk = Platform.init(b);
