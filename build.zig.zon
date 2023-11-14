@@ -1,5 +1,5 @@
 .{
-    .paths = .{ "src", "vendor" },
+    .paths = .{ "src", "vendor", "build.zig" },
     .name = "zig_sdl_platform",
     .version = "0.0.0",
     .dependencies = .{
