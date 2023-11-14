@@ -1,10 +1,8 @@
 const std = @import("std");
-const Build = std.Build;
-const LibExeObjStep = Build.LibExeObjStep;
 const SdlSdk = @import("sdl");
 
 const Platform = @This();
-build: *Build,
+build: *std.Build,
 sdl_sdk: *SdlSdk,
 
 pub fn build(b: *std.Build) void {
@@ -51,13 +49,13 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 }
 
-pub fn init(b: *Build) *Platform {
+pub fn init(b: *std.Build) *Platform {
     const sdk = b.allocator.create(Platform) catch @panic("out of memory");
     sdk.* = .{ .build = b, .sdl_sdk = SdlSdk.init(b, null) };
     return sdk;
 }
 
-pub fn link(sdk: *Platform, exe: *LibExeObjStep) void {
+pub fn link(sdk: *Platform, exe: *std.Build.LibExeObjStep) void {
     const b = sdk.build;
 
     const cimgui_sdl2_opengl3_obj = b.addObject(.{
