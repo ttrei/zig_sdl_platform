@@ -9,21 +9,23 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Dependencies from build.zig.zon
+    const handmade_gl_pkg = b.dependency("handmade_gl", .{});
+    const handmade_gl_module = handmade_gl_pkg.module("handmade_gl");
+
+    // Vendored dependencies
     // const handmade_gl_pkg = b.anonymousDependency(
     //     "vendor/handmade_gl",
     //     @import("vendor/handmade_gl/build.zig"),
     //     .{},
     // );
-    // Use this if decide to switch from vendoring to build.zig.zon
-    const handmade_gl_pkg = b.dependency("handmade_gl", .{});
-    const handmade_gl_module = handmade_gl_pkg.module("handmade_gl");
 
-    const sdk = Platform.init(b);
+    const platform = Platform.init(b);
 
     var platform_module = b.addModule("platform", .{
         .source_file = .{ .path = "src/sdl_platform.zig" },
         .dependencies = &.{
-            .{ .name = "sdl2", .module = sdk.sdl_sdk.getWrapperModule() },
+            .{ .name = "sdl2", .module = platform.sdl_sdk.getWrapperModule() },
         },
     });
 
@@ -35,7 +37,7 @@ pub fn build(b: *std.Build) void {
     });
     example_exe.addModule("handmade_gl", handmade_gl_module);
     example_exe.addModule("sdl_platform", platform_module);
-    sdk.link(example_exe);
+    platform.link(example_exe);
 
     b.installArtifact(example_exe);
 
@@ -50,13 +52,13 @@ pub fn build(b: *std.Build) void {
 }
 
 pub fn init(b: *std.Build) *Platform {
-    const sdk = b.allocator.create(Platform) catch @panic("out of memory");
-    sdk.* = .{ .build = b, .sdl_sdk = SdlSdk.init(b, null) };
-    return sdk;
+    const platform = b.allocator.create(Platform) catch @panic("out of memory");
+    platform.* = .{ .build = b, .sdl_sdk = SdlSdk.init(b, null) };
+    return platform;
 }
 
-pub fn link(sdk: *Platform, exe: *std.Build.LibExeObjStep) void {
-    const b = sdk.build;
+pub fn link(platform: *Platform, exe: *std.Build.LibExeObjStep) void {
+    const b = platform.build;
 
     const cimgui_sdl2_opengl3_obj = b.addObject(.{
         .name = "cimgui_sdl2_opengl3_obj",
@@ -85,7 +87,7 @@ pub fn link(sdk: *Platform, exe: *std.Build.LibExeObjStep) void {
     cimgui_sdl2_opengl3_obj.linkLibC();
     cimgui_sdl2_opengl3_obj.linkLibCpp();
     cimgui_sdl2_opengl3_obj.linkSystemLibrary("gl");
-    sdk.sdl_sdk.link(cimgui_sdl2_opengl3_obj, .static);
+    platform.sdl_sdk.link(cimgui_sdl2_opengl3_obj, .static);
 
     exe.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
     exe.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui" });
