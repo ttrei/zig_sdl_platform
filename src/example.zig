@@ -7,16 +7,14 @@ const AudioSettings = platform.AudioSettings;
 
 const gl = @import("handmade_gl");
 const Pixel = gl.screen.Pixel;
-const ScreenCoordinate = gl.screen.ScreenCoordinate;
 const PixelBuffer = gl.screen.PixelBuffer;
-const geometry = gl.geometry;
-const Polygon = geometry.Polygon;
-const Rectangle = geometry.Rectangle;
-const Circle = geometry.Circle;
-const Shape = geometry.Shape;
-const PointInt = geometry.PointInt;
-
-pub const CoordinateTransform = gl.geometry.CoordinateTransform;
+const Polygon = gl.geometry.Polygon;
+const Rectangle = gl.geometry.Rectangle;
+const Circle = gl.geometry.Circle;
+const Shape = gl.geometry.Shape;
+const Point = gl.geometry.Point;
+const Transform = gl.geometry.Transform;
+const Camera = gl.Camera;
 
 const TONE_A = 440.0;
 const TONE_B = 440.0 * 3 / 4;
@@ -35,14 +33,7 @@ const Global = struct {
 
     var buffer: PixelBuffer = undefined;
     var scene: Scene = undefined;
-    var viewport: ViewPort = undefined;
-    var viewport_pos = Pixel{ .x = 50, .y = 50 };
-};
-
-const ViewPort = struct {
-    // Transforms from scene coordinates to viewport coordinates
-    camera_transform: CoordinateTransform,
-    buffer: PixelBuffer,
+    var camera: Camera = undefined;
 };
 
 const Scene = struct {
@@ -87,12 +78,12 @@ const Scene = struct {
         return &shape.circle;
     }
 
-    pub fn draw(self: *const Self, viewport: *ViewPort) !void {
+    pub fn draw(self: *const Self, camera: *Camera) !void {
         for (self.objects.items) |o| {
             // TODO: create a local arena and reuse it for each item
             var cloned = try o.clone(std.heap.page_allocator);
-            cloned.transform(&viewport.camera_transform);
-            cloned.draw(&viewport.buffer, green);
+            cloned.transform(&camera.transform);
+            cloned.draw(&camera.buffer, green);
             cloned.deinit();
         }
     }
@@ -116,14 +107,14 @@ pub fn main() !void {
 fn update(step: f64) void {
     _ = step;
 
-    Global.viewport.camera_transform.scale = Global.scale;
+    Global.camera.transform.scale = Global.scale;
 }
 
 fn render() void {
     Global.buffer.clear(0xFFFFFFFF);
-    Global.viewport.buffer.clear(0x000000FF);
+    Global.camera.buffer.clear(0x000000FF);
 
-    Global.scene.draw(&Global.viewport) catch unreachable;
+    Global.scene.draw(&Global.camera) catch unreachable;
 
     _ = platform.c.igSliderFloat("scale", &Global.scale, 0.5, 1.5, "%.02f", 0);
     // platform.imguiText("Area: {d:.2}", .{poly.area2()});
@@ -133,63 +124,43 @@ fn render() void {
     if (Global.show_demo_window) platform.c.igShowDemoWindow(&Global.show_demo_window);
 }
 
-fn updateViewPort() void {
-    const viewport_width = Global.buffer.width * 8 / 10;
-    const viewport_height = Global.buffer.height * 8 / 10;
-    if (Global.viewport_pos.x + viewport_width > Global.buffer.width) {
-        Global.viewport_pos.x = Global.buffer.width - viewport_width;
-    }
-    if (Global.viewport_pos.y + viewport_height > Global.buffer.height) {
-        Global.viewport_pos.y = Global.buffer.height - viewport_height;
-    }
-    Global.viewport = ViewPort{
-        .camera_transform = CoordinateTransform{
-            .translate_x = 50.0,
-            .translate_y = -20.0,
-            .scale = 1.5,
-        },
-        .buffer = Global.buffer.subBuffer(
-            viewport_width,
-            viewport_height,
-            Global.viewport_pos,
-        ) catch unreachable,
-    };
-}
-
-fn resize(pixels: []u32, width: ScreenCoordinate, height: ScreenCoordinate) void {
+fn resize(pixels: []u32, width: u32, height: u32) void {
     Global.buffer = PixelBuffer.init(pixels, width, height) catch unreachable;
-    updateViewPort();
+    Global.camera = Camera.init(
+        Pixel{ .x = 50, .y = 50 },
+        Global.buffer.width - 100,
+        Global.buffer.height - 100,
+        Transform{},
+        &Global.buffer,
+    ) catch unreachable;
 }
 
 fn processInput(input: *const InputState) void {
     if (input.key_space_down) {
-        Global.viewport_pos.x += 5;
-        Global.viewport_pos.y += 5;
-        updateViewPort();
+        Global.camera.position.x += 10;
+        Global.camera.position.y += 10;
+        Global.camera.updateBuffer();
     }
-    if (input.mouse_right_down) {
-        Global.scene.current_polygon = Global.scene.addPolygon() catch unreachable;
+    if (input.key_backspace_down) {
+        Global.camera.position.x -= 10;
+        Global.camera.position.y -= 10;
+        Global.camera.updateBuffer();
     }
-    const pointer = PointInt{
-        .x = input.mouse_x,
-        .y = input.mouse_y,
-    };
-    const pointer_scene = Global.viewport.camera_transform.reverseInt(
-        &pointer.sub(&PointInt.fromPixel(&Global.viewport_pos)),
-    );
+    if (input.mouse_right_down) Global.scene.current_polygon = Global.scene.addPolygon() catch unreachable;
+    const pointer = Pixel{ .x = input.mouse_x, .y = input.mouse_y };
+    const pointer_world_coordinates = Global.camera.screenToWorldCoordinates(pointer);
     var poly = Global.scene.current_polygon;
     if (input.mouse_left_down) {
         if (poly.n == 0) {
-            poly.add_vertex(pointer_scene) catch unreachable;
+            poly.add_vertex(pointer_world_coordinates) catch unreachable;
         }
-        poly.add_vertex(pointer_scene) catch unreachable;
+        poly.add_vertex(pointer_world_coordinates) catch unreachable;
     }
     if (input.mouse_middle_down) {
-        Global.scene.circle.c = pointer_scene;
+        Global.scene.circle.c = pointer_world_coordinates;
     }
     if (poly.n > 0) {
-        poly.first.prev.p.x = pointer_scene.x;
-        poly.first.prev.p.y = pointer_scene.y;
+        poly.first.prev.p = pointer_world_coordinates;
     }
 
     const factor_a = (@as(f64, @floatFromInt(input.controller_left_y)) + 32768) / 32768;

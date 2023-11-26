@@ -11,7 +11,6 @@ pub fn build(b: *std.Build) void {
 
     // Dependencies from build.zig.zon
     const handmade_gl_pkg = b.dependency("handmade_gl", .{});
-    const handmade_gl_module = handmade_gl_pkg.module("handmade_gl");
 
     // Vendored dependencies
     // const handmade_gl_pkg = b.anonymousDependency(
@@ -35,7 +34,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    example_exe.addModule("handmade_gl", handmade_gl_module);
+    example_exe.addModule("handmade_gl", handmade_gl_pkg.module("handmade_gl"));
     example_exe.addModule("sdl_platform", platform_module);
     platform.link(example_exe);
 

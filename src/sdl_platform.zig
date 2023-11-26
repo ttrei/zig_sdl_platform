@@ -199,6 +199,7 @@ pub fn coreLoop(
                     switch (ev.keycode) {
                         .escape => break :the_loop,
                         .space => input.key_space_down = true,
+                        .backspace => input.key_backspace_down = true,
                         .s => input.key_s_down = true,
                         else => {},
                     }
@@ -300,6 +301,7 @@ pub const InputState = struct {
     controller_right_y: i16 = 0,
 
     key_space_down: bool = false,
+    key_backspace_down: bool = false,
     key_s_down: bool = false,
 
     fn reset(self: *InputState) void {
@@ -309,6 +311,7 @@ pub const InputState = struct {
         self.mouse_right_down = false;
         self.mouse_middle_down = false;
         self.key_space_down = false;
+        self.key_backspace_down = false;
         self.key_s_down = false;
     }
 };
