@@ -8,8 +8,8 @@
             .hash = "12202a0847d24f9c79302fff04e73d65a3342baecf0dfea46ac304eb68109ab6b472",
         },
         .handmade_gl = .{
-            .url = "https://github.com/ttrei/handmade_gl/archive/387cdda.tar.gz",
-            .hash = "122061ad0db41d15c973821f54b9e1391cc6db186108350e9a18089580971ac3149a",
+            .url = "https://github.com/ttrei/handmade_gl/archive/20c5ad1.tar.gz",
+            .hash = "1220ed6c1d5acb00bd28732037c210facf519c60e88732911f99e5e275f8cbbcc569",
         },
     },
 }
