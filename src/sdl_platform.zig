@@ -380,7 +380,10 @@ pub const SdlPlatform = struct {
 
         self.gl_context = try SDL.gl.createContext(self.window);
         try SDL.gl.makeCurrent(self.gl_context, self.window);
-        // try SDL.gl.setSwapInterval(.vsync);
+        // try SDL.gl.setSwapInterval(.immediate);
+        SDL.gl.setSwapInterval(.adaptive_vsync) catch {
+            try SDL.gl.setSwapInterval(.vsync);
+        };
 
         self.imgui_context = c.igCreateContext(null);
         if (!c.ImGui_ImplSDL2_InitForOpenGL(
