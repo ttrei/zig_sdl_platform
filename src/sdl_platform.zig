@@ -155,7 +155,6 @@ pub fn coreLoop(
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
-    const TARGET_FPS = 60;
     const SIMULATION_UPS = 100;
 
     const step = 1.0 / @as(comptime_float, SIMULATION_UPS);
@@ -259,7 +258,7 @@ pub fn coreLoop(
         platform.render();
 
         // update FPS twice per second
-        if (fps_frame_count > TARGET_FPS / 2) {
+        if (fps_accumulator > std.time.ns_per_s / 2) {
             fps = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
             fps_accumulator = 0;
             fps_frame_count = 0;
