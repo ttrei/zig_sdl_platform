@@ -243,8 +243,17 @@ pub fn coreLoop(
 
         inputCallback(&input);
 
-        while (game_accumulator >= ns_per_update) : (game_accumulator -= ns_per_update) {
+        var i: usize = 0;
+        update_loop: while (game_accumulator >= ns_per_update) : ({
+            game_accumulator -= ns_per_update;
+            i += 1;
+        }) {
             updateCallback(step);
+            if (i > 100) {
+                std.debug.print("WARNING! Physics updated 100 times in one frame\n", .{});
+                game_accumulator = 0;
+                break :update_loop;
+            }
         }
 
         platform.process_audio(&application_audio_buffer, audioCallback);
