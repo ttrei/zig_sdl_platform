@@ -36,7 +36,7 @@ pub const ApplicationAudioBuffer = struct {
     const Self = @This();
 
     fn init() !Self {
-        var buffer = Self{
+        const buffer = Self{
             .samples = try gpa_allocator.alloc(
                 AudioSettings.sample_type,
                 AudioSettings.buffer_size_in_samples,
@@ -79,8 +79,8 @@ const SdlAudioRingBuffer = struct {
             return;
         }
         if (self.write_cursor + buffer.sample_count < self.samples.len) {
-            var source = buffer.samples[0..buffer.sample_count];
-            var target = self.samples[self.write_cursor .. self.write_cursor + buffer.sample_count];
+            const source = buffer.samples[0..buffer.sample_count];
+            const target = self.samples[self.write_cursor .. self.write_cursor + buffer.sample_count];
             @memcpy(target, source);
             self.write_cursor += buffer.sample_count;
         } else {
@@ -106,7 +106,7 @@ fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes_c
     const buffer_size_in_bytes = bytes_per_sample * audio_buffer.samples.len;
 
     if (audio_buffer.play_cursor * bytes_per_sample + length_in_bytes < buffer_size_in_bytes) {
-        var source = @as([*]u8, @ptrCast(audio_buffer.samples.ptr)) + audio_buffer.play_cursor * bytes_per_sample;
+        const source = @as([*]u8, @ptrCast(audio_buffer.samples.ptr)) + audio_buffer.play_cursor * bytes_per_sample;
         var i: usize = 0;
         while (i < length_in_bytes) {
             audio_data[i] = source[i];

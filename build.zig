@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) void {
 
     const platform = Platform.init(b);
 
-    var platform_module = b.addModule("platform", .{
+    const platform_module = b.addModule("platform", .{
         .source_file = .{ .path = "src/sdl_platform.zig" },
         .dependencies = &.{
             .{ .name = "sdl2", .module = platform.sdl_sdk.getWrapperModule() },
