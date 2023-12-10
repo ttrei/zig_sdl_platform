@@ -79,11 +79,12 @@ const Scene = struct {
     }
 
     pub fn draw(self: *const Self, camera: *Camera) !void {
+        if (camera.buffer == null) return;
         for (self.objects.items) |o| {
             // TODO: create a local arena and reuse it for each item
             var cloned = try o.clone(std.heap.page_allocator);
             cloned.transform(&camera.transform);
-            cloned.draw(&camera.buffer, green);
+            cloned.draw(&camera.buffer.?, green);
             cloned.deinit();
         }
     }
@@ -112,8 +113,9 @@ fn update(step: f64) void {
 
 fn render() void {
     Global.buffer.clear(0xFFFFFFFF);
-    Global.camera.buffer.clear(0x000000FF);
-
+    if (Global.camera.buffer != null) {
+        Global.camera.buffer.?.clear(0x000000FF);
+    }
     Global.scene.draw(&Global.camera) catch unreachable;
 
     _ = platform.c.igSliderFloat("scale", &Global.scale, 0.5, 1.5, "%.02f", 0);
