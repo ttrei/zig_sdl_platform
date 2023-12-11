@@ -569,9 +569,7 @@ pub const SdlPlatform = struct {
     }
 
     pub fn clearScreenBuffer(self: *SdlPlatform, color: u32) void {
-        for (self.screen_buffer) |*pixel| {
-            pixel.* = color;
-        }
+        for (self.screen_buffer) |*pixel| pixel.* = color;
     }
 
     fn blitScreenBuffer(self: *SdlPlatform) void {
