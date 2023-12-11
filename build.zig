@@ -1,5 +1,5 @@
 const std = @import("std");
-const SdlSdk = @import("sdl");
+const SdlSdk = @import("sdl_zig");
 
 const Platform = @This();
 build: *std.Build,
