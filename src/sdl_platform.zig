@@ -443,11 +443,7 @@ pub const SdlPlatform = struct {
     }
 
     pub fn render(self: *SdlPlatform) void {
-        c.glClearColor(1.0, 0.0, 0.0, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT);
-
         self.blitScreenBuffer();
-        self.clearScreenBuffer(MAGENTA);
 
         c.glUseProgram(self.shader_program);
         c.glBindVertexArray(self.vao);
@@ -556,7 +552,7 @@ pub const SdlPlatform = struct {
     fn createScreenBufferAndTexture(self: *SdlPlatform) !void {
         const num_pixels = Global.screen_width * Global.screen_height;
         self.screen_buffer = try gpa_allocator.alloc(u32, num_pixels);
-        self.clearScreenBuffer(MAGENTA);
+        for (self.screen_buffer) |*pixel| pixel.* = MAGENTA;
 
         c.glGenTextures(1, &self.texture);
         c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
@@ -566,10 +562,6 @@ pub const SdlPlatform = struct {
         c.glUniform1i(c.glGetUniformLocation(self.shader_program, "screenBuffer"), 0);
 
         self.blitScreenBuffer();
-    }
-
-    pub fn clearScreenBuffer(self: *SdlPlatform, color: u32) void {
-        for (self.screen_buffer) |*pixel| pixel.* = color;
     }
 
     fn blitScreenBuffer(self: *SdlPlatform) void {
