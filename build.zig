@@ -9,18 +9,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Dependencies from build.zig.zon
-    const handmade_gl_pkg = b.dependency("handmade_gl", .{});
-
-    // Vendored dependencies
-    // const handmade_gl_pkg = b.anonymousDependency(
-    //     "vendor/handmade_gl",
-    //     @import("vendor/handmade_gl/build.zig"),
-    //     .{},
-    // );
-
     const platform = Platform.init(b);
-
     const platform_module = b.addModule("platform", .{
         .source_file = .{ .path = "src/sdl_platform.zig" },
         .dependencies = &.{
@@ -34,6 +23,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const handmade_gl_pkg = b.dependency("handmade_gl", .{ .target = target, .optimize = optimize });
     example_exe.addModule("handmade_gl", handmade_gl_pkg.module("handmade_gl"));
     example_exe.addModule("sdl_platform", platform_module);
     platform.link(example_exe);
