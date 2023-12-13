@@ -217,6 +217,14 @@ pub fn coreLoop(
                         else => {},
                     }
                 },
+                .mouse_button_up => |ev| {
+                    switch (ev.button) {
+                        .left => input.mouse_left_up = true,
+                        .right => input.mouse_right_up = true,
+                        .middle => input.mouse_middle_up = true,
+                        else => {},
+                    }
+                },
                 .controller_axis_motion => |ev| {
                     switch (ev.axis) {
                         .left_x => input.controller_left_x = ev.value,
@@ -302,6 +310,9 @@ pub const InputState = struct {
     mouse_left_down: bool = false,
     mouse_right_down: bool = false,
     mouse_middle_down: bool = false,
+    mouse_left_up: bool = false,
+    mouse_right_up: bool = false,
+    mouse_middle_up: bool = false,
 
     controller_left_x: i16 = 0,
     controller_left_y: i16 = 0,
@@ -318,6 +329,9 @@ pub const InputState = struct {
         self.mouse_left_down = false;
         self.mouse_right_down = false;
         self.mouse_middle_down = false;
+        self.mouse_left_up = false;
+        self.mouse_right_up = false;
+        self.mouse_middle_up = false;
         self.key_space_down = false;
         self.key_backspace_down = false;
         self.key_s_down = false;
