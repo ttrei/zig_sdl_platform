@@ -206,8 +206,8 @@ pub fn coreLoop(
                 .mouse_motion => |ev| {
                     input.mouse_x = ev.x;
                     input.mouse_y = ev.y;
-                    input.mouse_dx = ev.delta_x;
-                    input.mouse_dy = ev.delta_y;
+                    input.mouse_dx += ev.delta_x;
+                    input.mouse_dy += ev.delta_y;
                 },
                 .mouse_button_down => |ev| {
                     switch (ev.button) {
@@ -216,6 +216,10 @@ pub fn coreLoop(
                         .middle => input.mouse_middle_down = true,
                         else => {},
                     }
+                },
+                .mouse_wheel => |ev| {
+                    input.mouse_wheel_dx += ev.delta_x;
+                    input.mouse_wheel_dy += ev.delta_y;
                 },
                 .mouse_button_up => |ev| {
                     switch (ev.button) {
@@ -314,6 +318,9 @@ pub const InputState = struct {
     mouse_right_up: bool = false,
     mouse_middle_up: bool = false,
 
+    mouse_wheel_dx: i32 = 0,
+    mouse_wheel_dy: i32 = 0,
+
     controller_left_x: i16 = 0,
     controller_left_y: i16 = 0,
     controller_right_x: i16 = 0,
@@ -332,6 +339,8 @@ pub const InputState = struct {
         self.mouse_left_up = false;
         self.mouse_right_up = false;
         self.mouse_middle_up = false;
+        self.mouse_wheel_dx = 0;
+        self.mouse_wheel_dy = 0;
         self.key_space_down = false;
         self.key_backspace_down = false;
         self.key_s_down = false;
