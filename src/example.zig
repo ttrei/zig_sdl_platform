@@ -134,6 +134,7 @@ fn resize(pixels: []u32, width: u32, height: u32) void {
         Global.buffer.height - 100,
         Transform{},
         &Global.buffer,
+        .topleft,
     ) catch unreachable;
 }
 
