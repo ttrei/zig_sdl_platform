@@ -408,8 +408,12 @@ pub const SdlPlatform = struct {
             height,
             .{ .vis = .shown, .context = .opengl, .resizable = false, .allow_high_dpi = true },
         );
-
         self.gl_context = try SDL.gl.createContext(self.window);
+        const glew_err = c.glewInit();
+        if (glew_err != c.GLEW_OK) {
+            const str = @as([*:0]const u8, c.glewGetErrorString(glew_err));
+            @panic(std.mem.sliceTo(str, 0));
+        }
         try SDL.gl.makeCurrent(self.gl_context, self.window);
         // try SDL.gl.setSwapInterval(.immediate);
         SDL.gl.setSwapInterval(.adaptive_vsync) catch {
@@ -468,8 +472,8 @@ pub const SdlPlatform = struct {
     pub fn render(self: *SdlPlatform) void {
         self.blitScreenBuffer();
 
-        c.glUseProgram(self.shader_program);
-        c.glBindVertexArray(self.vao);
+        c.__glewUseProgram.?(self.shader_program);
+        c.__glewBindVertexArray.?(self.vao);
         // Draw the full-screen quad
         c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
 
@@ -484,26 +488,26 @@ pub const SdlPlatform = struct {
         // Followed https://learnopengl.com/Getting-started/Hello-Triangle.
         // Gained enough understanding to create a full-screen quad with a
         // texture containing the screen buffer.
-        c.glGenVertexArrays(1, &self.vao);
-        c.glBindVertexArray(self.vao);
+        c.__glewGenVertexArrays.?(1, &self.vao);
+        c.__glewBindVertexArray.?(self.vao);
 
-        c.glGenBuffers(1, &self.vbo);
-        c.glBindBuffer(c.GL_ARRAY_BUFFER, self.vbo);
-        c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, c.GL_STATIC_DRAW);
+        c.__glewGenBuffers.?(1, &self.vbo);
+        c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, self.vbo);
+        c.__glewBufferData.?(c.GL_ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, c.GL_STATIC_DRAW);
         // vertex attribute for coordinates
-        c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
-        c.glEnableVertexAttribArray(0);
+        c.__glewVertexAttribPointer.?(0, 3, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(0));
+        c.__glewEnableVertexAttribArray.?(0);
         // vertex attribute for texture coordinates
-        c.glVertexAttribPointer(1, 2, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
-        c.glEnableVertexAttribArray(1);
-        c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
+        c.__glewVertexAttribPointer.?(1, 2, c.GL_FLOAT, c.GL_FALSE, 5 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+        c.__glewEnableVertexAttribArray.?(1);
+        c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, 0);
 
-        c.glGenBuffers(1, &self.ebo);
-        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, self.ebo);
-        c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * indices.len, &indices, c.GL_STATIC_DRAW);
+        c.__glewGenBuffers.?(1, &self.ebo);
+        c.__glewBindBuffer.?(c.GL_ELEMENT_ARRAY_BUFFER, self.ebo);
+        c.__glewBufferData.?(c.GL_ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * indices.len, &indices, c.GL_STATIC_DRAW);
 
-        c.glBindVertexArray(0);
-        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, 0);
+        c.__glewBindVertexArray.?(0);
+        c.__glewBindBuffer.?(c.GL_ELEMENT_ARRAY_BUFFER, 0);
 
         var success: c_int = undefined;
 
@@ -520,11 +524,11 @@ pub const SdlPlatform = struct {
             \\    TexCoord = aTexCoord;
             \\}
         ;
-        const vertex_shader = c.glCreateShader(c.GL_VERTEX_SHADER);
-        defer c.glDeleteShader(vertex_shader);
-        c.glShaderSource(vertex_shader, 1, @ptrCast(&vertex_shader_source), null);
-        c.glCompileShader(vertex_shader);
-        c.glGetShaderiv(vertex_shader, c.GL_COMPILE_STATUS, &success);
+        const vertex_shader = c.__glewCreateShader.?(c.GL_VERTEX_SHADER);
+        defer c.__glewDeleteShader.?(vertex_shader);
+        c.__glewShaderSource.?(vertex_shader, 1, @ptrCast(&vertex_shader_source), null);
+        c.__glewCompileShader.?(vertex_shader);
+        c.__glewGetShaderiv.?(vertex_shader, c.GL_COMPILE_STATUS, &success);
         // std.debug.print("vertex shader compilation status = {}\n", .{success});
         // TODO: learn how to extract the info log in zig
         // if(!success) {
@@ -546,30 +550,30 @@ pub const SdlPlatform = struct {
             \\    FragColor = texture(screenBuffer, TexCoord);
             \\} 
         ;
-        const frag_shader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
-        defer c.glDeleteShader(frag_shader);
-        c.glShaderSource(frag_shader, 1, @ptrCast(&frag_shader_source), null);
-        c.glCompileShader(frag_shader);
-        c.glGetShaderiv(frag_shader, c.GL_COMPILE_STATUS, &success);
+        const frag_shader = c.__glewCreateShader.?(c.GL_FRAGMENT_SHADER);
+        defer c.__glewDeleteShader.?(frag_shader);
+        c.__glewShaderSource.?(frag_shader, 1, @ptrCast(&frag_shader_source), null);
+        c.__glewCompileShader.?(frag_shader);
+        c.__glewGetShaderiv.?(frag_shader, c.GL_COMPILE_STATUS, &success);
         // std.debug.print("fragment shader compilation status = {}\n", .{success});
 
-        self.shader_program = c.glCreateProgram();
-        c.glAttachShader(self.shader_program, vertex_shader);
-        c.glAttachShader(self.shader_program, frag_shader);
-        c.glLinkProgram(self.shader_program);
-        c.glGetProgramiv(self.shader_program, c.GL_LINK_STATUS, &success);
+        self.shader_program = c.__glewCreateProgram.?();
+        c.__glewAttachShader.?(self.shader_program, vertex_shader);
+        c.__glewAttachShader.?(self.shader_program, frag_shader);
+        c.__glewLinkProgram.?(self.shader_program);
+        c.__glewGetProgramiv.?(self.shader_program, c.GL_LINK_STATUS, &success);
         // std.debug.print("shader program link status = {}\n", .{success});
 
         // Wireframe mode
-        // c.glPolygonMode(c.GL_FRONT_AND_BACK, c.GL_LINE);
+        // c.__glewPolygonMode.?(c.GL_FRONT_AND_BACK, c.GL_LINE);
     }
 
     fn deinitOpenGLObjects(self: *SdlPlatform) void {
         c.glDeleteTextures(1, &self.texture);
-        c.glDeleteProgram(self.shader_program);
-        c.glDeleteBuffers(1, &self.ebo);
-        c.glDeleteBuffers(1, &self.vbo);
-        c.glDeleteVertexArrays(1, &self.vao);
+        c.__glewDeleteProgram.?(self.shader_program);
+        c.__glewDeleteBuffers.?(1, &self.ebo);
+        c.__glewDeleteBuffers.?(1, &self.vbo);
+        c.__glewDeleteVertexArrays.?(1, &self.vao);
     }
 
     fn createScreenBufferAndTexture(self: *SdlPlatform) !void {
@@ -581,14 +585,14 @@ pub const SdlPlatform = struct {
         c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
         c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_NEAREST);
         c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
-        c.glUseProgram(self.shader_program);
-        c.glUniform1i(c.glGetUniformLocation(self.shader_program, "screenBuffer"), 0);
+        c.__glewUseProgram.?(self.shader_program);
+        c.__glewUniform1i.?(c.__glewGetUniformLocation.?(self.shader_program, "screenBuffer"), 0);
 
         self.blitScreenBuffer();
     }
 
     fn blitScreenBuffer(self: *SdlPlatform) void {
-        c.glActiveTexture(c.GL_TEXTURE0);
+        c.__glewActiveTexture.?(c.GL_TEXTURE0);
         c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
         // Transfer screen_buffer to the texture
         c.glTexImage2D(

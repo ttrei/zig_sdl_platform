@@ -2,4 +2,5 @@ zig-cache/
 zig-out/
 
 imgui.ini
+sdl2-dev
 perf.data*
