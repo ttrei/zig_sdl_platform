@@ -148,7 +148,7 @@ fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
 
 pub fn coreLoop(
     updateCallback: *const fn (f64) void,
-    renderCallback: *const fn () void,
+    renderCallback: *const fn (f32) void,
     resizeCallback: *const fn ([]u32, u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
     audioCallback: *const fn (*ApplicationAudioBuffer) void,
@@ -273,9 +273,7 @@ pub fn coreLoop(
         platform.new_imgui_frame();
         if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
 
-        imguiText("FPS: {d:.2}", .{fps});
-
-        renderCallback();
+        renderCallback(fps);
         platform.render();
 
         // update FPS twice per second

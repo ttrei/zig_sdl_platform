@@ -111,13 +111,14 @@ fn update(step: f64) void {
     Global.camera.transform.scale = Global.scale;
 }
 
-fn render() void {
+fn render(fps: f32) void {
     Global.buffer.clear(0xFFFFFFFF);
     if (Global.camera.buffer != null) {
         Global.camera.buffer.?.clear(0x000000FF);
     }
     Global.scene.draw(&Global.camera) catch unreachable;
 
+    platform.imguiText("FPS: {d:.2}", .{fps});
     _ = platform.c.igSliderFloat("scale", &Global.scale, 0.5, 1.5, "%.02f", 0);
     // platform.imguiText("Area: {d:.2}", .{poly.area2()});
     platform.imguiText("A: {d:.2} Hz", .{Global.tone_a});
