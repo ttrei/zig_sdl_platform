@@ -25,6 +25,9 @@ shader_program: c_uint = undefined,
 audio_buffer: SdlAudioRingBuffer = undefined,
 audio_device: SDL.AudioDevice = undefined,
 
+screen_width: u32 = undefined,
+screen_height: u32 = undefined,
+
 pub fn init(
     window_name: [:0]const u8,
     comptime width: comptime_int,
@@ -116,8 +119,8 @@ pub fn resize(self: *Self) !void {
         gpa_allocator.free(self.screen_buffer.?);
     }
     const window_size = self.window.getSize();
-    Global.screen_width = @intCast(window_size.width);
-    Global.screen_height = @intCast(window_size.height);
+    self.screen_width = @intCast(window_size.width);
+    self.screen_height = @intCast(window_size.height);
     try self.createScreenBufferAndTexture();
     c.glViewport(0, 0, @intCast(window_size.width), @intCast(window_size.height));
 }
@@ -252,9 +255,9 @@ fn deinitOpenGLObjects(self: *Self) void {
 }
 
 fn createScreenBufferAndTexture(self: *Self) !void {
-    const num_pixels = Global.screen_width * Global.screen_height;
+    const num_pixels = self.screen_width * self.screen_height;
     self.screen_buffer = try gpa_allocator.alloc(u32, num_pixels);
-    for (self.screen_buffer.?) |*pixel| pixel.* = MAGENTA;
+    for (self.screen_buffer.?) |*pixel| pixel.* = 0xFF00FFFF; // magenta
 
     c.glGenTextures(1, &self.texture);
     c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
@@ -274,8 +277,8 @@ fn blitScreenBuffer(self: *Self) void {
         c.GL_TEXTURE_2D,
         0,
         c.GL_RGB,
-        @intCast(Global.screen_width),
-        @intCast(Global.screen_height),
+        @intCast(self.screen_width),
+        @intCast(self.screen_height),
         0,
         c.GL_RGBA,
         // Had problems with endianness of the color bytes.
@@ -467,13 +470,6 @@ pub const AudioSettings = struct {
     pub const bytes_per_frame = @sizeOf(sample_type) * channel_count;
     // Our buffers will contain 1 second of samples
     pub const buffer_size_in_samples = sample_rate * channel_count;
-};
-
-const MAGENTA = 0xFF00FFFF;
-
-const Global = struct {
-    var screen_width: u32 = undefined;
-    var screen_height: u32 = undefined;
 };
 
 pub const ApplicationAudioBuffer = struct {
