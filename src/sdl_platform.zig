@@ -267,7 +267,7 @@ pub fn coreLoop(
         }) {
             updateCallback(step);
             if (i > 100) {
-                std.debug.print("WARNING! Physics updated 100 times in one frame\n", .{});
+                std.debug.print("WARNING! Updated 100 times in one frame\n", .{});
                 game_accumulator = 0;
                 break :update_loop;
             }
