@@ -1,9 +1,9 @@
 const std = @import("std");
 
-const platform = @import("sdl_platform");
-const InputState = platform.InputState;
-const ApplicationAudioBuffer = platform.ApplicationAudioBuffer;
-const AudioSettings = platform.AudioSettings;
+const SdlPlatform = @import("sdl_platform");
+const InputState = SdlPlatform.InputState;
+const ApplicationAudioBuffer = SdlPlatform.ApplicationAudioBuffer;
+const AudioSettings = SdlPlatform.AudioSettings;
 
 const gl = @import("handmade_gl");
 const Pixel = gl.screen.Pixel;
@@ -102,6 +102,9 @@ pub fn main() !void {
         &.{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
     );
 
+    var platform = try SdlPlatform.init("SDL2 Zig Platform example", 1000, 600, 100, false);
+    defer platform.deinit();
+
     try platform.coreLoop(update, render, resize, processInput, writeAudio, null, null);
 }
 
@@ -118,13 +121,13 @@ fn render(fps: f32) void {
     }
     Global.scene.draw(&Global.camera) catch unreachable;
 
-    platform.imguiText("FPS: {d:.2}", .{fps});
-    _ = platform.c.igSliderFloat("scale", &Global.scale, 0.5, 1.5, "%.02f", 0);
-    // platform.imguiText("Area: {d:.2}", .{poly.area2()});
-    platform.imguiText("A: {d:.2} Hz", .{Global.tone_a});
-    platform.imguiText("B: {d:.2} Hz", .{Global.tone_b});
+    SdlPlatform.imguiText("FPS: {d:.2}", .{fps});
+    _ = SdlPlatform.c.igSliderFloat("scale", &Global.scale, 0.5, 1.5, "%.02f", 0);
+    // SdlPlatform.imguiText("Area: {d:.2}", .{poly.area2()});
+    SdlPlatform.imguiText("A: {d:.2} Hz", .{Global.tone_a});
+    SdlPlatform.imguiText("B: {d:.2} Hz", .{Global.tone_b});
 
-    if (Global.show_demo_window) platform.c.igShowDemoWindow(&Global.show_demo_window);
+    if (Global.show_demo_window) SdlPlatform.c.igShowDemoWindow(&Global.show_demo_window);
 }
 
 fn resize(pixels: []u32, width: u32, height: u32) void {
