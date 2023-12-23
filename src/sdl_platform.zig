@@ -202,7 +202,7 @@ pub const InputState = struct {
 };
 
 pub const SdlPlatform = struct {
-    simulation_ups: usize = undefined,
+    ups: usize = undefined,
 
     window: SDL.Window = undefined,
     imgui_context: [*c]c.ImGuiContext = undefined,
@@ -238,10 +238,10 @@ pub const SdlPlatform = struct {
         window_name: [:0]const u8,
         comptime width: comptime_int,
         comptime height: comptime_int,
-        comptime simulation_ups: comptime_int,
+        comptime ups: comptime_int,
         comptime full_screen: bool,
     ) !void {
-        self.simulation_ups = simulation_ups;
+        self.ups = ups;
 
         try SDL.init(.{
             .video = true,
@@ -508,8 +508,8 @@ pub const SdlPlatform = struct {
         updateStartCallback: ?*const fn () void,
         updateDoneCallback: ?*const fn () void,
     ) !void {
-        const step = 1.0 / @as(f64, @floatFromInt(self.simulation_ups));
-        const ns_per_update = std.time.ns_per_s / self.simulation_ups;
+        const step = 1.0 / @as(f64, @floatFromInt(self.ups));
+        const ns_per_update = std.time.ns_per_s / self.ups;
 
         const window_size = self.window.getSize();
         resizeCallback(self.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
