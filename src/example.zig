@@ -102,7 +102,7 @@ pub fn main() !void {
         &.{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
     );
 
-    try platform.coreLoop(update, render, resize, processInput, writeAudio);
+    try platform.coreLoop(update, render, resize, processInput, writeAudio, null, null);
 }
 
 fn update(step: f64) void {

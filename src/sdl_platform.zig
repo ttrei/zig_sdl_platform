@@ -152,6 +152,8 @@ pub fn coreLoop(
     resizeCallback: *const fn ([]u32, u32, u32) void,
     inputCallback: *const fn (*const InputState) void,
     audioCallback: *const fn (*ApplicationAudioBuffer) void,
+    updateStartCallback: ?*const fn () void,
+    updateDoneCallback: ?*const fn () void,
 ) !void {
     const WINDOW_WIDTH = 1000;
     const WINDOW_HEIGHT = 600;
@@ -255,6 +257,9 @@ pub fn coreLoop(
 
         inputCallback(&input);
 
+        if (updateStartCallback != null) {
+            updateStartCallback.?();
+        }
         var i: usize = 0;
         update_loop: while (game_accumulator >= ns_per_update) : ({
             game_accumulator -= ns_per_update;
@@ -266,6 +271,9 @@ pub fn coreLoop(
                 game_accumulator = 0;
                 break :update_loop;
             }
+        }
+        if (updateDoneCallback != null) {
+            updateDoneCallback.?();
         }
 
         platform.process_audio(&application_audio_buffer, audioCallback);
