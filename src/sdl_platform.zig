@@ -8,11 +8,18 @@ const gpa_allocator = gpa.allocator();
 
 const Self = @This();
 
-ups: usize = undefined,
+ups: usize,
+updateCallback: *const fn (f64) void,
+renderCallback: *const fn (f32) void,
+resizeCallback: *const fn ([]u32, u32, u32) void,
+inputCallback: *const fn (*const InputState) void,
+audioCallback: *const fn (*ApplicationAudioBuffer) void,
 
 window: SDL.Window = undefined,
 imgui_context: [*c]c.ImGuiContext = undefined,
 screen_buffer: ?[]u32 = null,
+screen_width: u32 = undefined,
+screen_height: u32 = undefined,
 
 // OpenGL stuff necessary to draw a full-screen quad
 gl_context: SDL.gl.Context = undefined,
@@ -22,11 +29,74 @@ ebo: c_uint = undefined,
 texture: c_uint = undefined,
 shader_program: c_uint = undefined,
 
+input: InputState = undefined,
+
 audio_buffer: SdlAudioRingBuffer = undefined,
 audio_device: SDL.AudioDevice = undefined,
 
-screen_width: u32 = undefined,
-screen_height: u32 = undefined,
+pub fn coreLoop(self: *Self) !void {
+    const step = 1.0 / @as(f64, @floatFromInt(self.ups));
+    const ns_per_update = std.time.ns_per_s / self.ups;
+
+    const window_size = self.window.getSize();
+    self.resizeCallback(self.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
+
+    var show_demo_window: bool = false;
+
+    var current_time: i128 = std.time.nanoTimestamp();
+    var previous_time: i128 = undefined;
+    var game_accumulator: i128 = 0;
+    var fps_accumulator: i128 = 0;
+    var fps_frame_count: usize = 0;
+    var fps: f32 = 0;
+
+    if (try SDL.numJoysticks() > 0) {
+        _ = try SDL.GameController.open(0);
+    }
+
+    var application_audio_buffer = try ApplicationAudioBuffer.init();
+    defer application_audio_buffer.deinit();
+
+    core_loop: while (true) {
+        self.input.reset();
+        const quit = try self.getInput();
+        if (quit) break :core_loop;
+        self.inputCallback(&self.input);
+
+        var i: usize = 0;
+        update_loop: while (game_accumulator >= ns_per_update) : ({
+            game_accumulator -= ns_per_update;
+            i += 1;
+        }) {
+            self.updateCallback(step);
+            if (i > 100) {
+                std.debug.print("WARNING! Updated 100 times in one frame\n", .{});
+                game_accumulator = 0;
+                break :update_loop;
+            }
+        }
+
+        self.process_audio(&application_audio_buffer);
+
+        self.new_imgui_frame();
+        if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
+
+        self.renderCallback(fps);
+        self.render();
+
+        // update FPS twice per second
+        if (fps_accumulator > std.time.ns_per_s / 2) {
+            fps = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
+            fps_accumulator = 0;
+            fps_frame_count = 0;
+        }
+        previous_time = current_time;
+        current_time = std.time.nanoTimestamp();
+        game_accumulator += current_time - previous_time;
+        fps_accumulator += current_time - previous_time;
+        fps_frame_count += 1;
+    }
+}
 
 pub fn init(
     window_name: [:0]const u8,
@@ -34,9 +104,20 @@ pub fn init(
     comptime height: comptime_int,
     comptime ups: comptime_int,
     comptime full_screen: bool,
+    updateCallback: *const fn (f64) void,
+    renderCallback: *const fn (f32) void,
+    resizeCallback: *const fn ([]u32, u32, u32) void,
+    inputCallback: *const fn (*const InputState) void,
+    audioCallback: *const fn (*ApplicationAudioBuffer) void,
 ) !Self {
-    var self = Self{};
-    self.ups = ups;
+    var self = Self{
+        .ups = ups,
+        .updateCallback = updateCallback,
+        .renderCallback = renderCallback,
+        .resizeCallback = resizeCallback,
+        .inputCallback = inputCallback,
+        .audioCallback = audioCallback,
+    };
 
     try SDL.init(.{
         .video = true,
@@ -113,7 +194,104 @@ pub fn deinit(self: *Self) void {
     SDL.quit();
 }
 
-pub fn resize(self: *Self) !void {
+pub fn imguiText(comptime fmt: []const u8, args: anytype) void {
+    // I'm doing this bufPrintZ() dance because igText() fails to format a
+    // float - it always outputs 0.00.  Traced the problem to vsnprintf() in
+    // imgui.cpp::ImFormatString().
+    // Maybe my libc was somehow compiled without float formatting support?
+    // Didn't investigate further.
+    // Also tried to switch to stb_sprintf.h by defining
+    // IMGUI_USE_STB_SPRINTF, but it crashed with segmentation fault.
+    var buf: [256]u8 = undefined;
+    const text = std.fmt.bufPrintZ(&buf, fmt, args) catch unreachable;
+    c.igText("%s", text.ptr);
+}
+
+pub const InputState = struct {
+    quit: bool = false,
+
+    mouse_x: i32 = 0,
+    mouse_y: i32 = 0,
+    mouse_dx: i32 = 0,
+    mouse_dy: i32 = 0,
+
+    mouse_left_down: bool = false,
+    mouse_right_down: bool = false,
+    mouse_middle_down: bool = false,
+    mouse_left_up: bool = false,
+    mouse_right_up: bool = false,
+    mouse_middle_up: bool = false,
+
+    mouse_wheel_dx: i32 = 0,
+    mouse_wheel_dy: i32 = 0,
+
+    controller_left_x: i16 = 0,
+    controller_left_y: i16 = 0,
+    controller_right_x: i16 = 0,
+    controller_right_y: i16 = 0,
+
+    key_space_down: bool = false,
+    key_backspace_down: bool = false,
+    key_s_down: bool = false,
+
+    fn reset(self: *InputState) void {
+        self.mouse_dx = 0;
+        self.mouse_dy = 0;
+        self.mouse_left_down = false;
+        self.mouse_right_down = false;
+        self.mouse_middle_down = false;
+        self.mouse_left_up = false;
+        self.mouse_right_up = false;
+        self.mouse_middle_up = false;
+        self.mouse_wheel_dx = 0;
+        self.mouse_wheel_dy = 0;
+        self.key_space_down = false;
+        self.key_backspace_down = false;
+        self.key_s_down = false;
+    }
+};
+
+pub const AudioSettings = struct {
+    pub const sample_type = i16;
+    pub const buffer_format = SDL.AudioFormat.s16_lsb;
+    pub const sample_rate = 48_000;
+    // A frame consists of channel_count number of samples.
+    // "sample_rate" actually means "frame rate".
+    pub const channel_count = 2;
+    // Number of samples that we will ask the application to write.
+    // It must be larger than the number of samples requested by SDL callback.
+    pub const latency_sample_count = (sample_rate / 10) * channel_count;
+    pub const bytes_per_frame = @sizeOf(sample_type) * channel_count;
+    // Our buffers will contain 1 second of samples
+    pub const buffer_size_in_samples = sample_rate * channel_count;
+};
+
+pub const ApplicationAudioBuffer = struct {
+    // Linear buffer to transfer audio from application to platform
+    // Application audio callback writes sample_count samples to the beginning of the buffer.
+    samples: []AudioSettings.sample_type,
+    sample_count: u32,
+
+    fn init() !ApplicationAudioBuffer {
+        const buffer = ApplicationAudioBuffer{
+            .samples = try gpa_allocator.alloc(
+                AudioSettings.sample_type,
+                AudioSettings.buffer_size_in_samples,
+            ),
+            .sample_count = 0,
+        };
+        // Initialize to silence
+        for (buffer.samples) |*sample| {
+            sample.* = 0;
+        }
+        return buffer;
+    }
+    fn deinit(self: *const ApplicationAudioBuffer) void {
+        gpa_allocator.free(self.samples);
+    }
+};
+
+fn resize(self: *Self) !void {
     if (self.screen_buffer != null) {
         c.glDeleteTextures(1, &self.texture);
         gpa_allocator.free(self.screen_buffer.?);
@@ -125,14 +303,14 @@ pub fn resize(self: *Self) !void {
     c.glViewport(0, 0, @intCast(window_size.width), @intCast(window_size.height));
 }
 
-pub fn new_imgui_frame(self: *Self) void {
+fn new_imgui_frame(self: *Self) void {
     _ = self;
     c.ImGui_ImplOpenGL3_NewFrame();
     c.ImGui_ImplSDL2_NewFrame();
     c.igNewFrame();
 }
 
-pub fn render(self: *Self) void {
+fn render(self: *Self) void {
     self.blitScreenBuffer();
 
     c.__glewUseProgram.?(self.shader_program);
@@ -290,11 +468,7 @@ fn blitScreenBuffer(self: *Self) void {
     );
 }
 
-pub fn process_audio(
-    self: *Self,
-    application_buffer: *ApplicationAudioBuffer,
-    application_callback: *const fn (*ApplicationAudioBuffer) void,
-) void {
+fn process_audio(self: *Self, application_buffer: *ApplicationAudioBuffer) void {
     const buffer_size: u32 = @intCast(self.audio_buffer.samples.len);
     // Lock to make sure sdlAudioCallback doesn't modify the play_cursor while we are using it
     // for calculations.
@@ -306,196 +480,84 @@ pub fn process_audio(
     } else {
         application_buffer.sample_count = target_cursor - self.audio_buffer.write_cursor;
     }
-    application_callback(application_buffer);
+    self.audioCallback(application_buffer);
     self.audio_buffer.copyAudio(application_buffer);
 }
 
-pub fn coreLoop(
-    self: *Self,
-    updateCallback: *const fn (f64) void,
-    renderCallback: *const fn (f32) void,
-    resizeCallback: *const fn ([]u32, u32, u32) void,
-    inputCallback: *const fn (*const InputState) void,
-    audioCallback: *const fn (*ApplicationAudioBuffer) void,
-    updateStartCallback: ?*const fn () void,
-    updateDoneCallback: ?*const fn () void,
-) !void {
-    const step = 1.0 / @as(f64, @floatFromInt(self.ups));
-    const ns_per_update = std.time.ns_per_s / self.ups;
-
-    const window_size = self.window.getSize();
-    resizeCallback(self.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
-
-    var show_demo_window: bool = false;
-
-    var current_time: i128 = std.time.nanoTimestamp();
-    var previous_time: i128 = undefined;
-    var game_accumulator: i128 = 0;
-    var fps_accumulator: i128 = 0;
-    var fps_frame_count: usize = 0;
-    var fps: f32 = 0;
-
-    var input = InputState{};
-
-    if (try SDL.numJoysticks() > 0) {
-        _ = try SDL.GameController.open(0);
-    }
-
-    var application_audio_buffer = try ApplicationAudioBuffer.init();
-    defer application_audio_buffer.deinit();
-
+fn getInput(self: *Self) !bool {
+    var input = &self.input;
     var raw_event: SDL.c.SDL_Event = undefined;
-    the_loop: while (true) {
-        input.reset();
-
-        while (SDL.c.SDL_PollEvent(&raw_event) != 0) {
-            _ = c.ImGui_ImplSDL2_ProcessEvent(@ptrCast(&raw_event));
-            const event = SDL.Event.from(raw_event);
-            switch (event) {
-                .quit => break :the_loop,
-                .key_down => |ev| {
-                    switch (ev.keycode) {
-                        .escape => break :the_loop,
-                        .space => input.key_space_down = true,
-                        .backspace => input.key_backspace_down = true,
-                        .s => input.key_s_down = true,
-                        else => {},
-                    }
-                },
-                .mouse_motion => |ev| {
-                    input.mouse_x = ev.x;
-                    input.mouse_y = ev.y;
-                    input.mouse_dx += ev.delta_x;
-                    input.mouse_dy += ev.delta_y;
-                },
-                .mouse_button_down => |ev| {
-                    switch (ev.button) {
-                        .left => input.mouse_left_down = true,
-                        .right => input.mouse_right_down = true,
-                        .middle => input.mouse_middle_down = true,
-                        else => {},
-                    }
-                },
-                .mouse_wheel => |ev| {
-                    input.mouse_wheel_dx += ev.delta_x;
-                    input.mouse_wheel_dy += ev.delta_y;
-                },
-                .mouse_button_up => |ev| {
-                    switch (ev.button) {
-                        .left => input.mouse_left_up = true,
-                        .right => input.mouse_right_up = true,
-                        .middle => input.mouse_middle_up = true,
-                        else => {},
-                    }
-                },
-                .controller_axis_motion => |ev| {
-                    switch (ev.axis) {
-                        .left_x => input.controller_left_x = ev.value,
-                        .left_y => input.controller_left_y = ev.value,
-                        .right_x => input.controller_right_x = ev.value,
-                        .right_y => input.controller_right_y = ev.value,
-                        else => {},
-                    }
-                },
-                .window => |ev| {
-                    switch (ev.type) {
-                        .resized => |resize_event| {
-                            try self.resize();
-                            resizeCallback(
-                                self.screen_buffer.?,
-                                @intCast(resize_event.width),
-                                @intCast(resize_event.height),
-                            );
-                        },
-                        else => {},
-                    }
-                },
-                else => {},
-            }
+    while (SDL.c.SDL_PollEvent(&raw_event) != 0) {
+        _ = c.ImGui_ImplSDL2_ProcessEvent(@ptrCast(&raw_event));
+        const event = SDL.Event.from(raw_event);
+        switch (event) {
+            .quit => {
+                return true;
+            },
+            .key_down => |ev| {
+                switch (ev.keycode) {
+                    .escape => {
+                        return true;
+                    },
+                    .space => input.key_space_down = true,
+                    .backspace => input.key_backspace_down = true,
+                    .s => input.key_s_down = true,
+                    else => {},
+                }
+            },
+            .mouse_motion => |ev| {
+                input.mouse_x = ev.x;
+                input.mouse_y = ev.y;
+                input.mouse_dx += ev.delta_x;
+                input.mouse_dy += ev.delta_y;
+            },
+            .mouse_button_down => |ev| {
+                switch (ev.button) {
+                    .left => input.mouse_left_down = true,
+                    .right => input.mouse_right_down = true,
+                    .middle => input.mouse_middle_down = true,
+                    else => {},
+                }
+            },
+            .mouse_wheel => |ev| {
+                input.mouse_wheel_dx += ev.delta_x;
+                input.mouse_wheel_dy += ev.delta_y;
+            },
+            .mouse_button_up => |ev| {
+                switch (ev.button) {
+                    .left => input.mouse_left_up = true,
+                    .right => input.mouse_right_up = true,
+                    .middle => input.mouse_middle_up = true,
+                    else => {},
+                }
+            },
+            .controller_axis_motion => |ev| {
+                switch (ev.axis) {
+                    .left_x => input.controller_left_x = ev.value,
+                    .left_y => input.controller_left_y = ev.value,
+                    .right_x => input.controller_right_x = ev.value,
+                    .right_y => input.controller_right_y = ev.value,
+                    else => {},
+                }
+            },
+            .window => |ev| {
+                switch (ev.type) {
+                    .resized => |resize_event| {
+                        try self.resize();
+                        self.resizeCallback(
+                            self.screen_buffer.?,
+                            @intCast(resize_event.width),
+                            @intCast(resize_event.height),
+                        );
+                    },
+                    else => {},
+                }
+            },
+            else => {},
         }
-
-        inputCallback(&input);
-
-        if (updateStartCallback != null) {
-            updateStartCallback.?();
-        }
-        var i: usize = 0;
-        update_loop: while (game_accumulator >= ns_per_update) : ({
-            game_accumulator -= ns_per_update;
-            i += 1;
-        }) {
-            updateCallback(step);
-            if (i > 100) {
-                std.debug.print("WARNING! Updated 100 times in one frame\n", .{});
-                game_accumulator = 0;
-                break :update_loop;
-            }
-        }
-        if (updateDoneCallback != null) {
-            updateDoneCallback.?();
-        }
-
-        self.process_audio(&application_audio_buffer, audioCallback);
-
-        self.new_imgui_frame();
-        if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
-
-        renderCallback(fps);
-        self.render();
-
-        // update FPS twice per second
-        if (fps_accumulator > std.time.ns_per_s / 2) {
-            fps = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
-            fps_accumulator = 0;
-            fps_frame_count = 0;
-        }
-        previous_time = current_time;
-        current_time = std.time.nanoTimestamp();
-        game_accumulator += current_time - previous_time;
-        fps_accumulator += current_time - previous_time;
-        fps_frame_count += 1;
     }
+    return false;
 }
-
-pub const AudioSettings = struct {
-    pub const sample_type = i16;
-    pub const buffer_format = SDL.AudioFormat.s16_lsb;
-    pub const sample_rate = 48_000;
-    // A frame consists of channel_count number of samples.
-    // "sample_rate" actually means "frame rate".
-    pub const channel_count = 2;
-    // Number of samples that we will ask the application to write.
-    // It must be larger than the number of samples requested by SDL callback.
-    pub const latency_sample_count = (sample_rate / 10) * channel_count;
-    pub const bytes_per_frame = @sizeOf(sample_type) * channel_count;
-    // Our buffers will contain 1 second of samples
-    pub const buffer_size_in_samples = sample_rate * channel_count;
-};
-
-pub const ApplicationAudioBuffer = struct {
-    // Linear buffer to transfer audio from application to platform
-    // Application audio callback writes sample_count samples to the beginning of the buffer.
-    samples: []AudioSettings.sample_type,
-    sample_count: u32,
-
-    fn init() !ApplicationAudioBuffer {
-        const buffer = ApplicationAudioBuffer{
-            .samples = try gpa_allocator.alloc(
-                AudioSettings.sample_type,
-                AudioSettings.buffer_size_in_samples,
-            ),
-            .sample_count = 0,
-        };
-        // Initialize to silence
-        for (buffer.samples) |*sample| {
-            sample.* = 0;
-        }
-        return buffer;
-    }
-    fn deinit(self: *const ApplicationAudioBuffer) void {
-        gpa_allocator.free(self.samples);
-    }
-};
 
 const SdlAudioRingBuffer = struct {
     samples: []AudioSettings.sample_type,
@@ -587,58 +649,3 @@ fn initSdlAudioDevice(audio_buffer: *SdlAudioRingBuffer) !SDL.AudioDevice {
     } });
     return result.device;
 }
-
-pub fn imguiText(comptime fmt: []const u8, args: anytype) void {
-    // I'm doing this bufPrintZ() dance because igText() fails to format a
-    // float - it always outputs 0.00.  Traced the problem to vsnprintf() in
-    // imgui.cpp::ImFormatString().
-    // Maybe my libc was somehow compiled without float formatting support?
-    // Didn't investigate further.
-    // Also tried to switch to stb_sprintf.h by defining
-    // IMGUI_USE_STB_SPRINTF, but it crashed with segmentation fault.
-    var buf: [256]u8 = undefined;
-    const text = std.fmt.bufPrintZ(&buf, fmt, args) catch unreachable;
-    c.igText("%s", text.ptr);
-}
-
-pub const InputState = struct {
-    mouse_x: i32 = 0,
-    mouse_y: i32 = 0,
-    mouse_dx: i32 = 0,
-    mouse_dy: i32 = 0,
-
-    mouse_left_down: bool = false,
-    mouse_right_down: bool = false,
-    mouse_middle_down: bool = false,
-    mouse_left_up: bool = false,
-    mouse_right_up: bool = false,
-    mouse_middle_up: bool = false,
-
-    mouse_wheel_dx: i32 = 0,
-    mouse_wheel_dy: i32 = 0,
-
-    controller_left_x: i16 = 0,
-    controller_left_y: i16 = 0,
-    controller_right_x: i16 = 0,
-    controller_right_y: i16 = 0,
-
-    key_space_down: bool = false,
-    key_backspace_down: bool = false,
-    key_s_down: bool = false,
-
-    fn reset(self: *InputState) void {
-        self.mouse_dx = 0;
-        self.mouse_dy = 0;
-        self.mouse_left_down = false;
-        self.mouse_right_down = false;
-        self.mouse_middle_down = false;
-        self.mouse_left_up = false;
-        self.mouse_right_up = false;
-        self.mouse_middle_up = false;
-        self.mouse_wheel_dx = 0;
-        self.mouse_wheel_dy = 0;
-        self.key_space_down = false;
-        self.key_backspace_down = false;
-        self.key_s_down = false;
-    }
-};

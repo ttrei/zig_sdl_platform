@@ -102,10 +102,20 @@ pub fn main() !void {
         &.{ .c = .{ .x = 70, .y = 150 }, .r = 60 },
     );
 
-    var platform = try SdlPlatform.init("SDL2 Zig Platform example", 1000, 600, 100, false);
+    var platform = try SdlPlatform.init(
+        "SDL2 Zig Platform example",
+        1000,
+        600,
+        100,
+        false,
+        update,
+        render,
+        resize,
+        processInput,
+        writeAudio,
+    );
     defer platform.deinit();
-
-    try platform.coreLoop(update, render, resize, processInput, writeAudio, null, null);
+    try platform.coreLoop();
 }
 
 fn update(step: f64) void {
