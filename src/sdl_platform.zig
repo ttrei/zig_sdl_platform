@@ -20,6 +20,7 @@ imgui_context: [*c]c.ImGuiContext = undefined,
 screen_buffer: ?[]u32 = null,
 screen_width: u32 = undefined,
 screen_height: u32 = undefined,
+fps: f32 = 0,
 
 // OpenGL stuff necessary to draw a full-screen quad
 gl_context: SDL.gl.Context = undefined,
@@ -41,14 +42,11 @@ pub fn coreLoop(self: *Self) !void {
     const window_size = self.window.getSize();
     self.resizeCallback(self.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
 
-    var show_demo_window: bool = false;
-
     var current_time: i128 = std.time.nanoTimestamp();
     var previous_time: i128 = undefined;
     var game_accumulator: i128 = 0;
     var fps_accumulator: i128 = 0;
     var fps_frame_count: usize = 0;
-    var fps: f32 = 0;
 
     if (try SDL.numJoysticks() > 0) {
         _ = try SDL.GameController.open(0);
@@ -78,15 +76,11 @@ pub fn coreLoop(self: *Self) !void {
 
         self.process_audio(&application_audio_buffer);
 
-        self.new_imgui_frame();
-        if (show_demo_window) c.igShowDemoWindow(&show_demo_window);
-
-        self.renderCallback(fps);
         self.render();
 
         // update FPS twice per second
         if (fps_accumulator > std.time.ns_per_s / 2) {
-            fps = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
+            self.fps = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
             fps_accumulator = 0;
             fps_frame_count = 0;
         }
@@ -303,14 +297,14 @@ fn resize(self: *Self) !void {
     c.glViewport(0, 0, @intCast(window_size.width), @intCast(window_size.height));
 }
 
-fn new_imgui_frame(self: *Self) void {
-    _ = self;
+fn render(self: *Self) void {
     c.ImGui_ImplOpenGL3_NewFrame();
     c.ImGui_ImplSDL2_NewFrame();
     c.igNewFrame();
-}
+    // c.igShowDemoWindow(&show_demo_window);
 
-fn render(self: *Self) void {
+    self.renderCallback(self.fps);
+
     self.blitScreenBuffer();
 
     c.__glewUseProgram.?(self.shader_program);
