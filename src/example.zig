@@ -108,6 +108,7 @@ pub fn main() !void {
         600,
         100,
         false,
+        startFrame,
         update,
         render,
         resize,
@@ -117,6 +118,8 @@ pub fn main() !void {
     defer platform.deinit();
     try platform.coreLoop();
 }
+
+fn startFrame() void {}
 
 fn update(step: f64) void {
     _ = step;

@@ -9,6 +9,7 @@ const gpa_allocator = gpa.allocator();
 const Self = @This();
 
 ups: usize,
+frameStartCallback: *const fn () void,
 updateCallback: *const fn (f64) void,
 renderCallback: *const fn (f32) void,
 resizeCallback: *const fn ([]u32, u32, u32) void,
@@ -56,6 +57,8 @@ pub fn coreLoop(self: *Self) !void {
     defer application_audio_buffer.deinit();
 
     core_loop: while (true) {
+        self.frameStartCallback();
+
         self.input.reset();
         const quit = try self.getInput();
         if (quit) break :core_loop;
@@ -98,6 +101,7 @@ pub fn init(
     comptime height: comptime_int,
     comptime ups: comptime_int,
     comptime full_screen: bool,
+    frameStartCallback: *const fn () void,
     updateCallback: *const fn (f64) void,
     renderCallback: *const fn (f32) void,
     resizeCallback: *const fn ([]u32, u32, u32) void,
@@ -106,6 +110,7 @@ pub fn init(
 ) !Self {
     var self = Self{
         .ups = ups,
+        .frameStartCallback = frameStartCallback,
         .updateCallback = updateCallback,
         .renderCallback = renderCallback,
         .resizeCallback = resizeCallback,
