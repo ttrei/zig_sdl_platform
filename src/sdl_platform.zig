@@ -15,26 +15,28 @@ resizeCallback: *const fn ([]u32, u32, u32) void,
 inputCallback: *const fn (*const InputState) void,
 audioCallback: *const fn (*ApplicationAudioBuffer) void,
 
-window: SDL.Window = undefined,
-imgui_context: [*c]c.ImGuiContext = undefined,
-screen_buffer: ?[]u32 = null,
-screen_width: u32 = undefined,
-screen_height: u32 = undefined,
-ups_target: usize = undefined,
-fps_measured: f32 = 0,
+const Global = struct {
+    var window: SDL.Window = undefined;
+    var imgui_context: [*c]c.ImGuiContext = undefined;
+    var screen_buffer: ?[]u32 = null;
+    var screen_width: u32 = undefined;
+    var screen_height: u32 = undefined;
+    var ups_target: usize = undefined;
+    var fps_measured: f32 = 0;
 
-// OpenGL stuff necessary to draw a full-screen quad
-gl_context: SDL.gl.Context = undefined,
-vao: c_uint = undefined,
-vbo: c_uint = undefined,
-ebo: c_uint = undefined,
-texture: c_uint = undefined,
-shader_program: c_uint = undefined,
+    // OpenGL stuff necessary to draw a full-screen quad
+    var gl_context: SDL.gl.Context = undefined;
+    var vao: c_uint = undefined;
+    var vbo: c_uint = undefined;
+    var ebo: c_uint = undefined;
+    var texture: c_uint = undefined;
+    var shader_program: c_uint = undefined;
 
-input: InputState = undefined,
+    var input: InputState = undefined;
 
-audio_buffer: SdlAudioRingBuffer = undefined,
-audio_device: SDL.AudioDevice = undefined,
+    var audio_buffer: SdlAudioRingBuffer = undefined;
+    var audio_device: SDL.AudioDevice = undefined;
+};
 
 pub fn init(
     self: *Self,
@@ -44,7 +46,7 @@ pub fn init(
     comptime ups_target: comptime_int,
     comptime full_screen: bool,
 ) !void {
-    self.ups_target = ups_target;
+    Global.ups_target = ups_target;
     try SDL.init(.{ .video = true, .audio = true, .game_controller = true, .timer = true });
 
     const glsl_version = "#version 130";
@@ -57,7 +59,7 @@ pub fn init(
     try SDL.gl.setAttribute(.{ .depth_size = 24 });
     try SDL.gl.setAttribute(.{ .stencil_size = 8 });
 
-    self.window = try SDL.createWindow(
+    Global.window = try SDL.createWindow(
         window_name,
         .{ .centered = {} },
         .{ .centered = {} },
@@ -71,18 +73,18 @@ pub fn init(
             .allow_high_dpi = true,
         },
     );
-    self.gl_context = try SDL.gl.createContext(self.window);
+    Global.gl_context = try SDL.gl.createContext(Global.window);
     const glew_err = c.glewInit();
     if (glew_err != c.GLEW_OK) {
         const str = @as([*:0]const u8, c.glewGetErrorString(glew_err));
         @panic(std.mem.sliceTo(str, 0));
     }
-    try SDL.gl.makeCurrent(self.gl_context, self.window);
+    try SDL.gl.makeCurrent(Global.gl_context, Global.window);
     // try SDL.gl.setSwapInterval(.immediate);
     SDL.gl.setSwapInterval(.adaptive_vsync) catch try SDL.gl.setSwapInterval(.vsync);
 
-    self.imgui_context = c.igCreateContext(null);
-    if (!c.ImGui_ImplSDL2_InitForOpenGL(@ptrCast(self.window.ptr), &self.gl_context)) {
+    Global.imgui_context = c.igCreateContext(null);
+    if (!c.ImGui_ImplSDL2_InitForOpenGL(@ptrCast(Global.window.ptr), &Global.gl_context)) {
         return error.ImGuiSDL2ForOpenGLInitFailed;
     }
     if (!c.ImGui_ImplOpenGL3_Init(glsl_version)) return error.ImGuiOpenGL3InitFailed;
@@ -90,32 +92,32 @@ pub fn init(
     self.initOpenGLObjects();
     try self.resize();
 
-    self.audio_buffer = try SdlAudioRingBuffer.init();
-    self.audio_device = try initSdlAudioDevice(&self.audio_buffer);
-    self.audio_device.pause(false);
+    Global.audio_buffer = try SdlAudioRingBuffer.init();
+    Global.audio_device = try initSdlAudioDevice(&Global.audio_buffer);
+    Global.audio_device.pause(false);
 }
 
 pub fn deinit(self: *Self) void {
-    self.audio_device.close();
-    self.audio_buffer.deinit();
+    Global.audio_device.close();
+    Global.audio_buffer.deinit();
 
     self.deinitOpenGLObjects();
-    gpa_allocator.free(self.screen_buffer.?);
+    gpa_allocator.free(Global.screen_buffer.?);
     c.ImGui_ImplOpenGL3_Shutdown();
     c.ImGui_ImplSDL2_Shutdown();
-    c.igDestroyContext(self.imgui_context);
-    SDL.gl.deleteContext(self.gl_context);
+    c.igDestroyContext(Global.imgui_context);
+    SDL.gl.deleteContext(Global.gl_context);
 
-    self.window.destroy();
+    Global.window.destroy();
     SDL.quit();
 }
 
 pub fn coreLoop(self: *Self) !void {
-    const step = 1.0 / @as(f64, @floatFromInt(self.ups_target));
-    const ns_per_update = std.time.ns_per_s / self.ups_target;
+    const step = 1.0 / @as(f64, @floatFromInt(Global.ups_target));
+    const ns_per_update = std.time.ns_per_s / Global.ups_target;
 
-    const window_size = self.window.getSize();
-    self.resizeCallback(self.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
+    const window_size = Global.window.getSize();
+    self.resizeCallback(Global.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
 
     var current_time: i128 = std.time.nanoTimestamp();
     var previous_time: i128 = undefined;
@@ -133,10 +135,10 @@ pub fn coreLoop(self: *Self) !void {
     core_loop: while (true) {
         self.frameStartCallback();
 
-        self.input.reset();
+        Global.input.reset();
         const quit = try self.getInput();
         if (quit) break :core_loop;
-        self.inputCallback(&self.input);
+        self.inputCallback(&Global.input);
 
         var i: usize = 0;
         update_loop: while (game_accumulator >= ns_per_update) : ({
@@ -157,7 +159,7 @@ pub fn coreLoop(self: *Self) !void {
 
         // update FPS twice per second
         if (fps_accumulator > std.time.ns_per_s / 2) {
-            self.fps_measured = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
+            Global.fps_measured = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
             fps_accumulator = 0;
             fps_frame_count = 0;
         }
@@ -267,13 +269,13 @@ pub const ApplicationAudioBuffer = struct {
 };
 
 fn resize(self: *Self) !void {
-    if (self.screen_buffer != null) {
-        c.glDeleteTextures(1, &self.texture);
-        gpa_allocator.free(self.screen_buffer.?);
+    if (Global.screen_buffer != null) {
+        c.glDeleteTextures(1, &Global.texture);
+        gpa_allocator.free(Global.screen_buffer.?);
     }
-    const window_size = self.window.getSize();
-    self.screen_width = @intCast(window_size.width);
-    self.screen_height = @intCast(window_size.height);
+    const window_size = Global.window.getSize();
+    Global.screen_width = @intCast(window_size.width);
+    Global.screen_height = @intCast(window_size.height);
     try self.createScreenBufferAndTexture();
     c.glViewport(0, 0, @intCast(window_size.width), @intCast(window_size.height));
 }
@@ -284,12 +286,12 @@ fn render(self: *Self) void {
     c.igNewFrame();
     // c.igShowDemoWindow(&show_demo_window);
 
-    self.renderCallback(self.fps_measured);
+    self.renderCallback(Global.fps_measured);
 
     self.blitScreenBuffer();
 
-    c.__glewUseProgram.?(self.shader_program);
-    c.__glewBindVertexArray.?(self.vao);
+    c.__glewUseProgram.?(Global.shader_program);
+    c.__glewBindVertexArray.?(Global.vao);
     // Draw the full-screen quad
     c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
 
@@ -297,18 +299,20 @@ fn render(self: *Self) void {
     c.igRender();
     c.ImGui_ImplOpenGL3_RenderDrawData(c.igGetDrawData());
 
-    SDL.gl.swapWindow(self.window);
+    SDL.gl.swapWindow(Global.window);
 }
 
 fn initOpenGLObjects(self: *Self) void {
+    _ = self;
+
     // Followed https://learnopengl.com/Getting-started/Hello-Triangle.
     // Gained enough understanding to create a full-screen quad with a
     // texture containing the screen buffer.
-    c.__glewGenVertexArrays.?(1, &self.vao);
-    c.__glewBindVertexArray.?(self.vao);
+    c.__glewGenVertexArrays.?(1, &Global.vao);
+    c.__glewBindVertexArray.?(Global.vao);
 
-    c.__glewGenBuffers.?(1, &self.vbo);
-    c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, self.vbo);
+    c.__glewGenBuffers.?(1, &Global.vbo);
+    c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, Global.vbo);
 
     const vertices = [_]f32{
         // 3 vertex coordinates, 2 texture coordinates
@@ -328,8 +332,8 @@ fn initOpenGLObjects(self: *Self) void {
     c.__glewEnableVertexAttribArray.?(1);
     c.__glewBindBuffer.?(c.GL_ARRAY_BUFFER, 0);
 
-    c.__glewGenBuffers.?(1, &self.ebo);
-    c.__glewBindBuffer.?(c.GL_ELEMENT_ARRAY_BUFFER, self.ebo);
+    c.__glewGenBuffers.?(1, &Global.ebo);
+    c.__glewBindBuffer.?(c.GL_ELEMENT_ARRAY_BUFFER, Global.ebo);
 
     const indices = [_]u32{
         0, 1, 3, // first triangle
@@ -388,11 +392,11 @@ fn initOpenGLObjects(self: *Self) void {
     c.__glewGetShaderiv.?(frag_shader, c.GL_COMPILE_STATUS, &success);
     // std.debug.print("fragment shader compilation status = {}\n", .{success});
 
-    self.shader_program = c.__glewCreateProgram.?();
-    c.__glewAttachShader.?(self.shader_program, vertex_shader);
-    c.__glewAttachShader.?(self.shader_program, frag_shader);
-    c.__glewLinkProgram.?(self.shader_program);
-    c.__glewGetProgramiv.?(self.shader_program, c.GL_LINK_STATUS, &success);
+    Global.shader_program = c.__glewCreateProgram.?();
+    c.__glewAttachShader.?(Global.shader_program, vertex_shader);
+    c.__glewAttachShader.?(Global.shader_program, frag_shader);
+    c.__glewLinkProgram.?(Global.shader_program);
+    c.__glewGetProgramiv.?(Global.shader_program, c.GL_LINK_STATUS, &success);
     // std.debug.print("shader program link status = {}\n", .{success});
 
     // Wireframe mode
@@ -400,38 +404,42 @@ fn initOpenGLObjects(self: *Self) void {
 }
 
 fn deinitOpenGLObjects(self: *Self) void {
-    c.glDeleteTextures(1, &self.texture);
-    c.__glewDeleteProgram.?(self.shader_program);
-    c.__glewDeleteBuffers.?(1, &self.ebo);
-    c.__glewDeleteBuffers.?(1, &self.vbo);
-    c.__glewDeleteVertexArrays.?(1, &self.vao);
+    _ = self;
+
+    c.glDeleteTextures(1, &Global.texture);
+    c.__glewDeleteProgram.?(Global.shader_program);
+    c.__glewDeleteBuffers.?(1, &Global.ebo);
+    c.__glewDeleteBuffers.?(1, &Global.vbo);
+    c.__glewDeleteVertexArrays.?(1, &Global.vao);
 }
 
 fn createScreenBufferAndTexture(self: *Self) !void {
-    const num_pixels = self.screen_width * self.screen_height;
-    self.screen_buffer = try gpa_allocator.alloc(u32, num_pixels);
-    for (self.screen_buffer.?) |*pixel| pixel.* = 0xFF00FFFF; // magenta
+    const num_pixels = Global.screen_width * Global.screen_height;
+    Global.screen_buffer = try gpa_allocator.alloc(u32, num_pixels);
+    for (Global.screen_buffer.?) |*pixel| pixel.* = 0xFF00FFFF; // magenta
 
-    c.glGenTextures(1, &self.texture);
-    c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
+    c.glGenTextures(1, &Global.texture);
+    c.glBindTexture(c.GL_TEXTURE_2D, Global.texture);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_NEAREST);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
-    c.__glewUseProgram.?(self.shader_program);
-    c.__glewUniform1i.?(c.__glewGetUniformLocation.?(self.shader_program, "screenBuffer"), 0);
+    c.__glewUseProgram.?(Global.shader_program);
+    c.__glewUniform1i.?(c.__glewGetUniformLocation.?(Global.shader_program, "screenBuffer"), 0);
 
     self.blitScreenBuffer();
 }
 
 fn blitScreenBuffer(self: *Self) void {
+    _ = self;
+
     c.__glewActiveTexture.?(c.GL_TEXTURE0);
-    c.glBindTexture(c.GL_TEXTURE_2D, self.texture);
+    c.glBindTexture(c.GL_TEXTURE_2D, Global.texture);
     // Transfer screen_buffer to the texture
     c.glTexImage2D(
         c.GL_TEXTURE_2D,
         0,
         c.GL_RGB,
-        @intCast(self.screen_width),
-        @intCast(self.screen_height),
+        @intCast(Global.screen_width),
+        @intCast(Global.screen_height),
         0,
         c.GL_RGBA,
         // Had problems with endianness of the color bytes.
@@ -439,28 +447,28 @@ fn blitScreenBuffer(self: *Self) void {
         // I don't have a deep understanding of what's going on here, but that's OK.
         // This code needs to be just good enough to transfer screen buffer to the quad.
         c.GL_UNSIGNED_INT_8_8_8_8,
-        self.screen_buffer.?.ptr,
+        Global.screen_buffer.?.ptr,
     );
 }
 
 fn process_audio(self: *Self, application_buffer: *ApplicationAudioBuffer) void {
-    const buffer_size: u32 = @intCast(self.audio_buffer.samples.len);
+    const buffer_size: u32 = @intCast(Global.audio_buffer.samples.len);
     // Lock to make sure sdlAudioCallback doesn't modify the play_cursor while we are using it
     // for calculations.
-    self.audio_device.lock();
-    const target_cursor = (self.audio_buffer.play_cursor + AudioSettings.latency_sample_count) % buffer_size;
-    self.audio_device.unlock();
-    if (self.audio_buffer.write_cursor > target_cursor) {
-        application_buffer.sample_count = buffer_size - (self.audio_buffer.write_cursor - target_cursor);
+    Global.audio_device.lock();
+    const target_cursor = (Global.audio_buffer.play_cursor + AudioSettings.latency_sample_count) % buffer_size;
+    Global.audio_device.unlock();
+    if (Global.audio_buffer.write_cursor > target_cursor) {
+        application_buffer.sample_count = buffer_size - (Global.audio_buffer.write_cursor - target_cursor);
     } else {
-        application_buffer.sample_count = target_cursor - self.audio_buffer.write_cursor;
+        application_buffer.sample_count = target_cursor - Global.audio_buffer.write_cursor;
     }
     self.audioCallback(application_buffer);
-    self.audio_buffer.copyAudio(application_buffer);
+    Global.audio_buffer.copyAudio(application_buffer);
 }
 
 fn getInput(self: *Self) !bool {
-    var input = &self.input;
+    var input = &Global.input;
     var raw_event: SDL.c.SDL_Event = undefined;
     while (SDL.c.SDL_PollEvent(&raw_event) != 0) {
         _ = c.ImGui_ImplSDL2_ProcessEvent(@ptrCast(&raw_event));
@@ -520,7 +528,7 @@ fn getInput(self: *Self) !bool {
                     .resized => |resize_event| {
                         try self.resize();
                         self.resizeCallback(
-                            self.screen_buffer.?,
+                            Global.screen_buffer.?,
                             @intCast(resize_event.width),
                             @intCast(resize_event.height),
                         );
