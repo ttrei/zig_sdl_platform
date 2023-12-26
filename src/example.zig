@@ -110,13 +110,7 @@ pub fn main() !void {
         .inputCallback = processInput,
         .audioCallback = writeAudio,
     };
-    try platform.init(
-        "SDL2 Zig Platform example",
-        1000,
-        600,
-        100,
-        false,
-    );
+    try platform.init("SDL2 Zig Platform example", 1000, 600, 100, false);
     defer platform.deinit();
     try platform.coreLoop();
 }
