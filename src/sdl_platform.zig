@@ -8,7 +8,6 @@ const gpa_allocator = gpa.allocator();
 
 const Self = @This();
 
-ups: usize,
 frameStartCallback: *const fn () void,
 updateCallback: *const fn (f64) void,
 renderCallback: *const fn (f32) void,
@@ -21,7 +20,8 @@ imgui_context: [*c]c.ImGuiContext = undefined,
 screen_buffer: ?[]u32 = null,
 screen_width: u32 = undefined,
 screen_height: u32 = undefined,
-fps: f32 = 0,
+ups_target: usize = undefined,
+fps_measured: f32 = 0,
 
 // OpenGL stuff necessary to draw a full-screen quad
 gl_context: SDL.gl.Context = undefined,
@@ -36,9 +36,83 @@ input: InputState = undefined,
 audio_buffer: SdlAudioRingBuffer = undefined,
 audio_device: SDL.AudioDevice = undefined,
 
+pub fn init(
+    self: *Self,
+    window_name: [:0]const u8,
+    comptime width: comptime_int,
+    comptime height: comptime_int,
+    comptime ups_target: comptime_int,
+    comptime full_screen: bool,
+) !void {
+    self.ups_target = ups_target;
+    try SDL.init(.{ .video = true, .audio = true, .game_controller = true, .timer = true });
+
+    const glsl_version = "#version 130";
+    try SDL.gl.setAttribute(.{ .context_flags = .{} });
+    try SDL.gl.setAttribute(.{ .context_profile_mask = .core });
+    try SDL.gl.setAttribute(.{ .context_major_version = 3 });
+    try SDL.gl.setAttribute(.{ .context_minor_version = 0 });
+
+    try SDL.gl.setAttribute(.{ .doublebuffer = true });
+    try SDL.gl.setAttribute(.{ .depth_size = 24 });
+    try SDL.gl.setAttribute(.{ .stencil_size = 8 });
+
+    self.window = try SDL.createWindow(
+        window_name,
+        .{ .centered = {} },
+        .{ .centered = {} },
+        width,
+        height,
+        .{
+            .dim = if (full_screen) .fullscreen_desktop else .default,
+            .vis = .shown,
+            .context = .opengl,
+            .resizable = false,
+            .allow_high_dpi = true,
+        },
+    );
+    self.gl_context = try SDL.gl.createContext(self.window);
+    const glew_err = c.glewInit();
+    if (glew_err != c.GLEW_OK) {
+        const str = @as([*:0]const u8, c.glewGetErrorString(glew_err));
+        @panic(std.mem.sliceTo(str, 0));
+    }
+    try SDL.gl.makeCurrent(self.gl_context, self.window);
+    // try SDL.gl.setSwapInterval(.immediate);
+    SDL.gl.setSwapInterval(.adaptive_vsync) catch try SDL.gl.setSwapInterval(.vsync);
+
+    self.imgui_context = c.igCreateContext(null);
+    if (!c.ImGui_ImplSDL2_InitForOpenGL(@ptrCast(self.window.ptr), &self.gl_context)) {
+        return error.ImGuiSDL2ForOpenGLInitFailed;
+    }
+    if (!c.ImGui_ImplOpenGL3_Init(glsl_version)) return error.ImGuiOpenGL3InitFailed;
+
+    self.initOpenGLObjects();
+    try self.resize();
+
+    self.audio_buffer = try SdlAudioRingBuffer.init();
+    self.audio_device = try initSdlAudioDevice(&self.audio_buffer);
+    self.audio_device.pause(false);
+}
+
+pub fn deinit(self: *Self) void {
+    self.audio_device.close();
+    self.audio_buffer.deinit();
+
+    self.deinitOpenGLObjects();
+    gpa_allocator.free(self.screen_buffer.?);
+    c.ImGui_ImplOpenGL3_Shutdown();
+    c.ImGui_ImplSDL2_Shutdown();
+    c.igDestroyContext(self.imgui_context);
+    SDL.gl.deleteContext(self.gl_context);
+
+    self.window.destroy();
+    SDL.quit();
+}
+
 pub fn coreLoop(self: *Self) !void {
-    const step = 1.0 / @as(f64, @floatFromInt(self.ups));
-    const ns_per_update = std.time.ns_per_s / self.ups;
+    const step = 1.0 / @as(f64, @floatFromInt(self.ups_target));
+    const ns_per_update = std.time.ns_per_s / self.ups_target;
 
     const window_size = self.window.getSize();
     self.resizeCallback(self.screen_buffer.?, @intCast(window_size.width), @intCast(window_size.height));
@@ -83,7 +157,7 @@ pub fn coreLoop(self: *Self) !void {
 
         // update FPS twice per second
         if (fps_accumulator > std.time.ns_per_s / 2) {
-            self.fps = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
+            self.fps_measured = @as(f32, @floatFromInt(fps_frame_count * std.time.ns_per_s)) / @as(f32, @floatFromInt(fps_accumulator));
             fps_accumulator = 0;
             fps_frame_count = 0;
         }
@@ -93,104 +167,6 @@ pub fn coreLoop(self: *Self) !void {
         fps_accumulator += current_time - previous_time;
         fps_frame_count += 1;
     }
-}
-
-pub fn init(
-    window_name: [:0]const u8,
-    comptime width: comptime_int,
-    comptime height: comptime_int,
-    comptime ups: comptime_int,
-    comptime full_screen: bool,
-    frameStartCallback: *const fn () void,
-    updateCallback: *const fn (f64) void,
-    renderCallback: *const fn (f32) void,
-    resizeCallback: *const fn ([]u32, u32, u32) void,
-    inputCallback: *const fn (*const InputState) void,
-    audioCallback: *const fn (*ApplicationAudioBuffer) void,
-) !Self {
-    var self = Self{
-        .ups = ups,
-        .frameStartCallback = frameStartCallback,
-        .updateCallback = updateCallback,
-        .renderCallback = renderCallback,
-        .resizeCallback = resizeCallback,
-        .inputCallback = inputCallback,
-        .audioCallback = audioCallback,
-    };
-
-    try SDL.init(.{
-        .video = true,
-        .audio = true,
-        .game_controller = true,
-        .timer = true,
-    });
-
-    const glsl_version = "#version 130";
-    try SDL.gl.setAttribute(.{ .context_flags = .{} });
-    try SDL.gl.setAttribute(.{ .context_profile_mask = .core });
-    try SDL.gl.setAttribute(.{ .context_major_version = 3 });
-    try SDL.gl.setAttribute(.{ .context_minor_version = 0 });
-
-    try SDL.gl.setAttribute(.{ .doublebuffer = true });
-    try SDL.gl.setAttribute(.{ .depth_size = 24 });
-    try SDL.gl.setAttribute(.{ .stencil_size = 8 });
-
-    self.window = try SDL.createWindow(
-        window_name,
-        .{ .centered = {} },
-        .{ .centered = {} },
-        width,
-        height,
-        .{
-            .dim = if (full_screen) .fullscreen_desktop else .default,
-            .vis = .shown,
-            .context = .opengl,
-            .resizable = false,
-            .allow_high_dpi = true,
-        },
-    );
-    self.gl_context = try SDL.gl.createContext(self.window);
-    const glew_err = c.glewInit();
-    if (glew_err != c.GLEW_OK) {
-        const str = @as([*:0]const u8, c.glewGetErrorString(glew_err));
-        @panic(std.mem.sliceTo(str, 0));
-    }
-    try SDL.gl.makeCurrent(self.gl_context, self.window);
-    // try SDL.gl.setSwapInterval(.immediate);
-    SDL.gl.setSwapInterval(.adaptive_vsync) catch {
-        try SDL.gl.setSwapInterval(.vsync);
-    };
-
-    self.imgui_context = c.igCreateContext(null);
-    if (!c.ImGui_ImplSDL2_InitForOpenGL(
-        @ptrCast(self.window.ptr),
-        &self.gl_context,
-    )) return error.ImGuiSDL2ForOpenGLInitFailed;
-    if (!c.ImGui_ImplOpenGL3_Init(glsl_version)) return error.ImGuiOpenGL3InitFailed;
-
-    self.initOpenGLObjects();
-    try self.resize();
-
-    self.audio_buffer = try SdlAudioRingBuffer.init();
-    self.audio_device = try initSdlAudioDevice(&self.audio_buffer);
-    self.audio_device.pause(false);
-
-    return self;
-}
-
-pub fn deinit(self: *Self) void {
-    self.audio_device.close();
-    self.audio_buffer.deinit();
-
-    self.deinitOpenGLObjects();
-    gpa_allocator.free(self.screen_buffer.?);
-    c.ImGui_ImplOpenGL3_Shutdown();
-    c.ImGui_ImplSDL2_Shutdown();
-    c.igDestroyContext(self.imgui_context);
-    SDL.gl.deleteContext(self.gl_context);
-
-    self.window.destroy();
-    SDL.quit();
 }
 
 pub fn imguiText(comptime fmt: []const u8, args: anytype) void {
@@ -308,7 +284,7 @@ fn render(self: *Self) void {
     c.igNewFrame();
     // c.igShowDemoWindow(&show_demo_window);
 
-    self.renderCallback(self.fps);
+    self.renderCallback(self.fps_measured);
 
     self.blitScreenBuffer();
 
