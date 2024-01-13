@@ -6,17 +6,26 @@ const Platform = @This();
 build: *std.Build,
 sdl_sdk: *SdlSdk,
 
+pub fn init(b: *std.Build) *Platform {
+    const platform = b.allocator.create(Platform) catch @panic("out of memory");
+    platform.* = .{ .build = b, .sdl_sdk = SdlSdk.init(b, null) };
+    return platform;
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const platform = Platform.init(b);
-    const platform_module = b.addModule("platform", .{
-        .source_file = .{ .path = "src/sdl_platform.zig" },
-        .dependencies = &.{
+    const module = b.addModule("platform", .{
+        .root_source_file = .{ .path = "src/sdl_platform.zig" },
+        .imports = &.{
             .{ .name = "sdl2", .module = platform.sdl_sdk.getWrapperModule() },
         },
     });
+    module.addIncludePath(.{ .path = "vendor/cimgui" });
+    module.addIncludePath(.{ .path = "vendor/cimgui/generator/output" });
+    module.addIncludePath(.{ .path = "vendor/glew" });
 
     const example_exe = b.addExecutable(.{
         .name = "example",
@@ -25,10 +34,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const handmade_gl_pkg = b.dependency("handmade_gl", .{ .target = target, .optimize = optimize });
-    example_exe.addModule("handmade_gl", handmade_gl_pkg.module("handmade_gl"));
-    example_exe.addModule("sdl_platform", platform_module);
+    example_exe.root_module.addImport("handmade_gl", handmade_gl_pkg.module("handmade_gl"));
+    example_exe.root_module.addImport("sdl_platform", module);
     platform.link(example_exe);
-
     b.installArtifact(example_exe);
 
     const run_cmd = b.addRunArtifact(example_exe);
@@ -41,61 +49,43 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 }
 
-pub fn init(b: *std.Build) *Platform {
-    const platform = b.allocator.create(Platform) catch @panic("out of memory");
-    platform.* = .{ .build = b, .sdl_sdk = SdlSdk.init(b, null) };
-    return platform;
-}
-
-pub fn link(platform: *Platform, exe: *std.Build.LibExeObjStep) void {
+pub fn link(platform: *Platform, exe: *std.Build.Step.Compile) void {
     const b = platform.build;
 
-    const cimgui_sdl2_opengl3_obj = std.Build.CompileStep.create(b, .{
-        .name = "cimgui_sdl2_opengl3_obj",
-        .kind = .lib,
-        .linkage = .static,
-        .root_source_file = .{ .path = "vendor/cimgui/cimgui.cpp" },
-        .target = exe.target,
-        .optimize = exe.optimize,
+    const cimgui_sdl2_opengl3_lib = b.addStaticLibrary(.{
+        .name = "cimgui_sdl2_opengl3_lib",
+        .target = exe.root_module.resolved_target.?,
+        .optimize = exe.root_module.optimize.?,
+        .link_libc = true,
     });
     // https://github.com/cimgui/cimgui/blob/261250f88f374e751b2de1501ba5c0c11e420b5a/backend_test/CMakeLists.txt#L39
-    cimgui_sdl2_opengl3_obj.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    cimgui_sdl2_opengl3_obj.defineCMacro("GLEW_NO_GLU", "");
-    const root_dir = comptime blk: {
-        break :blk std.fs.path.dirname(@src().file) orelse ".";
-    };
-    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui" });
-    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui/generator/output" });
-    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui/imgui" });
-    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui/imgui/backends" });
-    cimgui_sdl2_opengl3_obj.addIncludePath(.{ .path = root_dir ++ "/vendor/glew" });
-    cimgui_sdl2_opengl3_obj.addCSourceFiles(.{
+    cimgui_sdl2_opengl3_lib.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
+    cimgui_sdl2_opengl3_lib.defineCMacro("GLEW_NO_GLU", "");
+    cimgui_sdl2_opengl3_lib.addIncludePath(.{ .path = "vendor/cimgui" });
+    cimgui_sdl2_opengl3_lib.addIncludePath(.{ .path = "vendor/cimgui/generator/output" });
+    cimgui_sdl2_opengl3_lib.addIncludePath(.{ .path = "vendor/cimgui/imgui" });
+    cimgui_sdl2_opengl3_lib.addIncludePath(.{ .path = "vendor/cimgui/imgui/backends" });
+    cimgui_sdl2_opengl3_lib.addIncludePath(.{ .path = "vendor/glew" });
+    cimgui_sdl2_opengl3_lib.addCSourceFiles(.{
         .files = &.{
-            root_dir ++ "/vendor/cimgui/imgui/imgui.cpp",
-            root_dir ++ "/vendor/cimgui/imgui/imgui_demo.cpp",
-            root_dir ++ "/vendor/cimgui/imgui/imgui_draw.cpp",
-            root_dir ++ "/vendor/cimgui/imgui/imgui_tables.cpp",
-            root_dir ++ "/vendor/cimgui/imgui/imgui_widgets.cpp",
-            root_dir ++ "/vendor/cimgui/imgui/backends/imgui_impl_sdl2.cpp",
-            root_dir ++ "/vendor/cimgui/imgui/backends/imgui_impl_opengl3.cpp",
-            root_dir ++ "/vendor/glew/glew.c",
+            "vendor/cimgui/cimgui.cpp",
+            "vendor/cimgui/imgui/imgui.cpp",
+            "vendor/cimgui/imgui/imgui_demo.cpp",
+            "vendor/cimgui/imgui/imgui_draw.cpp",
+            "vendor/cimgui/imgui/imgui_tables.cpp",
+            "vendor/cimgui/imgui/imgui_widgets.cpp",
+            "vendor/cimgui/imgui/backends/imgui_impl_sdl2.cpp",
+            "vendor/cimgui/imgui/backends/imgui_impl_opengl3.cpp",
+            "vendor/glew/glew.c",
         },
     });
-    cimgui_sdl2_opengl3_obj.linkLibC();
-    cimgui_sdl2_opengl3_obj.linkLibCpp();
-    if (cimgui_sdl2_opengl3_obj.target.isWindows()) {
-        cimgui_sdl2_opengl3_obj.linkSystemLibrary("opengl32");
+    cimgui_sdl2_opengl3_lib.linkLibCpp();
+    if (cimgui_sdl2_opengl3_lib.rootModuleTarget().os.tag == .windows) {
+        cimgui_sdl2_opengl3_lib.linkSystemLibrary("opengl32");
     } else {
-        cimgui_sdl2_opengl3_obj.linkSystemLibrary("gl");
+        cimgui_sdl2_opengl3_lib.linkSystemLibrary("gl");
     }
-    platform.sdl_sdk.link(cimgui_sdl2_opengl3_obj, .static);
+    platform.sdl_sdk.link(cimgui_sdl2_opengl3_lib, .static);
 
-    exe.defineCMacro("IMGUI_IMPL_API", "extern \"C\"");
-    exe.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui" });
-    exe.addIncludePath(.{ .path = root_dir ++ "/vendor/cimgui/generator/output" });
-    exe.addIncludePath(.{ .path = root_dir ++ "/vendor/glew" });
-    exe.linkLibrary(cimgui_sdl2_opengl3_obj);
-    exe.linkLibC();
-    exe.linkLibCpp();
-    platform.sdl_sdk.link(exe, .static);
+    exe.linkLibrary(cimgui_sdl2_opengl3_lib);
 }

@@ -4,8 +4,8 @@
     .version = "0.0.0",
     .dependencies = .{
         .sdl_zig = .{
-            .url = "https://github.com/MasterQ32/SDL.zig/archive/1286a6b.tar.gz",
-            .hash = "1220fa912548957c1bf558f3f455b520dd0875bb09d28f8dd40af3e3a853222ee310",
+            .url = "https://github.com/MasterQ32/SDL.zig/archive/6d463b6.tar.gz",
+            .hash = "12202591518851ae339c8d12eb4d02fe3848375340111bc15d4e3ce50b6337bd6080",
         },
         .handmade_gl = .{
             // .url = "https://github.com/ttrei/handmade_gl/archive/de2cf73.tar.gz",
