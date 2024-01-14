@@ -88,4 +88,6 @@ pub fn link(platform: *Platform, exe: *std.Build.Step.Compile) void {
     platform.sdl_sdk.link(cimgui_sdl2_opengl3_lib, .static);
 
     exe.linkLibrary(cimgui_sdl2_opengl3_lib);
+    // This seems necessary only on windows
+    platform.sdl_sdk.link(exe, .static);
 }

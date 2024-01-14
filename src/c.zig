@@ -7,8 +7,4 @@ pub usingnamespace @cImport({
     @cDefine("CIMGUI_USE_OPENGL3", "");
     @cInclude("cimgui.h");
     @cInclude("cimgui_impl.h");
-
-    // TODO: Was this necessary for windows build?
-    // @cDefine("GL_GLEXT_PROTOTYPES", "");
-    // @cInclude("SDL_opengl.h");
 });
