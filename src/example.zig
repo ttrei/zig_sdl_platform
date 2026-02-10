@@ -37,7 +37,7 @@ const Global = struct {
 };
 
 const Scene = struct {
-    objects: std.ArrayList(*Shape) = undefined,
+    objects: std.ArrayList(*Shape) = .empty,
     current_polygon: *Polygon = undefined,
     rectangle: *Rectangle = undefined,
     circle: *Circle = undefined,
@@ -48,33 +48,31 @@ const Scene = struct {
     pub fn init() Self {
         return Self{
             .arena = std.heap.ArenaAllocator.init(std.heap.page_allocator),
-            // .objects = std.ArrayList(*Shape).init(arena.allocator()),
-            .objects = std.ArrayList(*Shape).init(std.heap.page_allocator),
         };
     }
     pub fn deinit(self: *Self) void {
-        self.objects.deinit();
+        self.objects.deinit(std.heap.page_allocator);
         self.arena.deinit();
     }
 
     pub fn addPolygon(self: *Self) !*Polygon {
         var shape = try self.arena.allocator().create(Shape);
         shape.* = .{ .polygon = Polygon.init(self.arena.allocator()) };
-        try self.objects.append(shape);
+        try self.objects.append(std.heap.page_allocator, shape);
         return &shape.polygon;
     }
 
     pub fn addRectangle(self: *Self, rectangle: *const Rectangle) !*Rectangle {
         var shape = try self.arena.allocator().create(Shape);
         shape.* = .{ .rectangle = rectangle.* };
-        try self.objects.append(shape);
+        try self.objects.append(std.heap.page_allocator, shape);
         return &shape.rectangle;
     }
 
     pub fn addCircle(self: *Self, circle: *const Circle) !*Circle {
         var shape = try self.arena.allocator().create(Shape);
         shape.* = .{ .circle = circle.* };
-        try self.objects.append(shape);
+        try self.objects.append(std.heap.page_allocator, shape);
         return &shape.circle;
     }
 

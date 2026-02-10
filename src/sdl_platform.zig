@@ -1,9 +1,9 @@
 const std = @import("std");
 const SDL = @import("sdl2");
-pub const c = @import("c.zig");
+pub const c = @import("c.zig").c;
 
 const Allocator = std.mem.Allocator;
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa: std.heap.DebugAllocator(.{}) = .init;
 const gpa_allocator = gpa.allocator();
 
 const Self = @This();
@@ -79,9 +79,11 @@ pub fn init(
         const str = @as([*:0]const u8, c.glewGetErrorString(glew_err));
         @panic(std.mem.sliceTo(str, 0));
     }
-    try SDL.gl.makeCurrent(Global.gl_context, Global.window);
-    // try SDL.gl.setSwapInterval(.immediate);
-    SDL.gl.setSwapInterval(.adaptive_vsync) catch try SDL.gl.setSwapInterval(.vsync);
+    try Global.gl_context.makeCurrent(Global.window);
+    // Fallback chain: adaptive_vsync -> vsync -> immediate (for headless/xvfb)
+    SDL.gl.setSwapInterval(.adaptive_vsync) catch
+        SDL.gl.setSwapInterval(.vsync) catch
+        SDL.gl.setSwapInterval(.immediate) catch {};
 
     Global.imgui_context = c.igCreateContext(null);
     if (!c.ImGui_ImplSDL2_InitForOpenGL(@ptrCast(Global.window.ptr), &Global.gl_context)) {
@@ -106,7 +108,7 @@ pub fn deinit(self: *Self) void {
     c.ImGui_ImplOpenGL3_Shutdown();
     c.ImGui_ImplSDL2_Shutdown();
     c.igDestroyContext(Global.imgui_context);
-    SDL.gl.deleteContext(Global.gl_context);
+    Global.gl_context.delete();
 
     Global.window.destroy();
     SDL.quit();
@@ -585,7 +587,7 @@ const SdlAudioRingBuffer = struct {
     }
 };
 
-fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes_c: c_int) callconv(.C) void {
+fn sdlAudioCallback(userdata: ?*anyopaque, audio_data: [*c]u8, length_in_bytes_c: c_int) callconv(.c) void {
     const audio_buffer: *SdlAudioRingBuffer = @ptrCast(@alignCast(userdata));
 
     const length_in_bytes: u32 = @intCast(length_in_bytes_c);

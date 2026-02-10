@@ -1,11 +1,12 @@
 .{
-    .paths = .{ "." },
-    .name = "zig_sdl_platform",
+    .name = .zig_sdl_platform,
     .version = "0.0.0",
+    .fingerprint = 0xbd510404e810a881,
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
     .dependencies = .{
-        .sdl_zig = .{
-            .url = "https://github.com/MasterQ32/SDL.zig/archive/6d463b6.tar.gz",
-            .hash = "12202591518851ae339c8d12eb4d02fe3848375340111bc15d4e3ce50b6337bd6080",
+        .sdl = .{
+            .url = "https://github.com/ikskuh/SDL.zig/archive/a7e95b5.tar.gz",
+            .hash = "SDL2-0.0.0-yMCQivWqBABTfB8opAADsLCGxxu20vijLBW2hHdpTR-L",
         },
         .handmade_gl = .{
             // .url = "https://github.com/ttrei/handmade_gl/archive/de2cf73.tar.gz",
