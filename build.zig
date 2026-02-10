@@ -50,6 +50,24 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run-example", "Run the example application");
     run_step.dependOn(&run_cmd.step);
+
+    // Regression test: @cImport of cimgui.h crashes Zig 0.15.2 compiler.
+    // Run `zig build test-cimport` to check if a future Zig version fixes this.
+    // See src/test_cimport.zig for investigation details.
+    const test_cimport_mod = b.createModule(.{
+        .root_source_file = b.path("src/test_cimport.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    test_cimport_mod.addIncludePath(b.path("vendor/cimgui"));
+    test_cimport_mod.addIncludePath(b.path("vendor/cimgui/generator/output"));
+    const test_cimport_exe = b.addExecutable(.{
+        .name = "test_cimport",
+        .root_module = test_cimport_mod,
+    });
+    const test_cimport_step = b.step("test-cimport", "Test @cImport of cimgui.h (crashes on Zig 0.15.2)");
+    test_cimport_step.dependOn(&test_cimport_exe.step);
 }
 
 pub fn link(platform: *Platform, exe: *std.Build.Step.Compile) void {
